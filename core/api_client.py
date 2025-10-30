@@ -1,41 +1,100 @@
-# api_client.py
-
-import sys # エラー警告出力のためにsysをインポート
+import sys
+import json
+import requests
 from google import genai
-from typing import List
+from typing import List, Dict
 
+# ==============================================================================
+#  APIキー管理クラス
+# ==============================================================================
 class ApiKeyManager:
-    def __init__(self, keys: List[str], default_index: int = 0):
-        # 変数名を 'api_key_list' に統一
-        self.api_key_list = [key for key in keys if key and not key.isspace()]
+    def __init__(self):
+        self.clients = []
+        self.current_index = 0
+        print("ApiKeyManagerが初期化されました。クライアントを追加してください。")
 
-        if not self.api_key_list: # 変数名を修正
-            raise ValueError("有効なAPIキーが一つも提供されていません。")
-        
-        # default_index がリストの範囲内にあるかを確認
-        if not (0 <= default_index < len(self.api_key_list)): # 変数名を修正
-            # Warning: Default index is invalid. Starting from key #1. のメッセージを維持しつつ、sys.stderrを使用
-            print(f"Warning: Default index {default_index} is invalid or out of range. Starting from key #1.", file=sys.stderr)
-            default_index = 0 # 無効な場合は0にフォールバック
-        
-        # ユーザーの指示に基づき、'default_api_key' 属性を追加
-        self.default_api_key = self.api_key_list[default_index] # 変数名を修正
-        
-        # get_next_key メソッドの既存の振る舞いを維持するため、current_index も引き続き保持
-        self.current_index = default_index 
-        
-        print(f"Default API key set to #{default_index}.")
-        
-    def get_next_key(self) -> str:
-        # 変数名を 'api_key_list' に修正
-        key = self.api_key_list[self.current_index]
-        print(f"--- Using API Key #{self.current_index + 1} ---")
-        # 変数名を 'api_key_list' に修正
-        self.current_index = (self.current_index) % len(self.api_key_list)
-        return key
+    def add_client(self, api_client: 'ApiClient'):
+        self.clients.append(api_client)
+        print(f"クライアント '{type(api_client).__name__}' (モデル: {api_client.model_name}) がマネージャーに追加されました。")
 
-class GeminiApiClient:
-    def __init__(self, api_key, model_name):
+    def get_next_client(self) -> 'ApiClient':
+        if not self.clients:
+            raise ValueError("クライアントが一つも追加されていません。add_client()メソッドで追加してください。")
+        
+        client = self.clients[self.current_index]
+        print(f"--- クライアント #{self.current_index} ({type(client).__name__}) を使用します ---")
+        
+        self.current_index = (self.current_index + 1) % len(self.clients)
+        
+        return client
+
+    def get_clients(self, client_type: str = "all") -> list['ApiClient']:
+        if client_type == "all":
+            return self.clients
+        
+        # クラス名から 'ApiClient' を除いた部分で判定 (例: 'GeminiApiClient' -> 'gemini')
+        type_str = client_type.lower()
+        return [
+            client for client in self.clients 
+            if type(client).__name__.lower().startswith(type_str)
+        ]
+
+    def get_current_client(self) -> 'ApiClient':
+        if not self.clients:
+            raise ValueError("クライアントが一つも追加されていません。")
+        return self.clients[self.current_index]
+
+    def set_client_by_index(self, index: int) -> 'ApiClient':
+        if not (0 <= index < len(self.clients)):
+            raise IndexError(f"インデックスが範囲外です。0から{len(self.clients) - 1}の間で指定してください。")
+        
+        self.current_index = index
+        print(f"現在のクライアントをインデックス #{index} に設定しました。")
+        return self.clients[self.current_index]
+    
+# ==============================================================================
+#  API クライアント (基底クラス)
+# ==============================================================================
+class ApiClient:
+    def __init__(self, api_key: str, model_name: str):
+        if not api_key or api_key.isspace():
+            raise ValueError("APIキーは必須です。")
         self.api_key = api_key
         self.model_name = model_name
-        self.client = genai.Client(api_key=api_key)
+
+# ==============================================================================
+#  Gemini API クライアント
+# ==============================================================================
+class GeminiApiClient(ApiClient):
+    def __init__(
+            self, 
+            api_key: str, 
+            model_name: str = "gemini-flash-latest" 
+        ):
+        super().__init__(api_key, model_name)
+
+        genai.configure(api_key=self.api_key)
+        self.model = None  # モデルは実行時に初期化
+        print(f"GeminiApiClientがモデル '{self.model_name}' 用に設定されました。")
+
+# ==============================================================================
+#  Llama.cpp API クライアント
+# ==============================================================================
+class LlamaCppApiClient(ApiClient):
+    def __init__(
+            self, 
+            api_key: str, 
+            model_name: str, 
+            api_url: str
+        ):
+        super().__init__(api_key, model_name)
+        
+        if not api_url or api_url.isspace():
+            raise ValueError("Llama.cppのAPI URLが必要です。")
+            
+        self.api_url = api_url
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        print(f"LlamaCppApiClientがモデル '{self.model_name}' (URL: {self.api_url}) 用に初期化されました。")
