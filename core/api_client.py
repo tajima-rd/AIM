@@ -2,7 +2,8 @@ import sys
 import json
 import requests
 from google import genai
-from typing import List, Dict
+from typing import List, Dict, Optional
+
 
 # ==============================================================================
 #  APIキー管理クラス
@@ -56,6 +57,8 @@ class ApiKeyManager:
 #  API クライアント (基底クラス)
 # ==============================================================================
 class ApiClient:
+    client_type = "base"
+
     def __init__(self, api_key: str, model_name: str):
         if not api_key or api_key.isspace():
             raise ValueError("APIキーは必須です。")
@@ -66,21 +69,23 @@ class ApiClient:
 #  Gemini API クライアント
 # ==============================================================================
 class GeminiApiClient(ApiClient):
+    client_type = "gemini"
     def __init__(
             self, 
             api_key: str, 
-            model_name: str = "gemini-flash-latest" 
+            model_name: str = "gemini-flash-latest"
         ):
         super().__init__(api_key, model_name)
-
-        genai.configure(api_key=self.api_key)
-        self.model = None  # モデルは実行時に初期化
+        
+        self.client = genai.Client(api_key=self.api_key)
         print(f"GeminiApiClientがモデル '{self.model_name}' 用に設定されました。")
 
 # ==============================================================================
 #  Llama.cpp API クライアント
 # ==============================================================================
 class LlamaCppApiClient(ApiClient):
+    client_type = "llamacpp"
+
     def __init__(
             self, 
             api_key: str, 

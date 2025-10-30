@@ -2,6 +2,7 @@ import abc # 抽象基底クラスを定義するためにインポート
 import sys
 import json
 import requests
+from google.genai import types
 from pathlib import Path
 from typing import (
     List, 
@@ -10,18 +11,19 @@ from typing import (
     Any, 
     Optional
 )
-
 from .api_client import (
     ApiClient,
     GeminiApiClient, 
     LlamaCppApiClient
 )
-
 from .models import (
+    Character,
     SceneConfig,
     WriteConfig,
     SpeechConfig
 )
+from aim_lib.utils.audio_processor import AudioProcessor
+
 
 # ==============================================================================
 # 抽象基底生成器クラス
@@ -35,6 +37,7 @@ class AbstractBaseGenerator(abc.ABC):
 
         if not isinstance(api_client, ApiClient):
             raise TypeError("api_clientはApiClientのサブクラスである必要があります。")
+        
         self.api_client = api_client
         self.config = config
 
@@ -46,128 +49,198 @@ class AbstractBaseGenerator(abc.ABC):
         pass
 
 # ==============================================================================
-# テキスト生成器クラス (抽象)
+# テキスト生成器クラス
 # ==============================================================================
 class TextGenerator(AbstractBaseGenerator):
-    def __init__(
-                self, 
-                api_client: ApiClient, 
-                write_config: WriteConfig
-        ):
-        
+    def __init__(self, api_client: ApiClient, write_config: WriteConfig):
         super().__init__(api_client, write_config)
-        
         if not isinstance(write_config, WriteConfig):
             raise TypeError("write_configはWriteConfigのサブクラスである必要があります。")
 
+    # このクラス独自のgenerateメソッドを新たに抽象メソッドとして定義
     @abc.abstractmethod
     def generate(self, messages: List[Dict[str, str]]) -> Optional[str]:
-        """
-        OpenAI形式のメッセージリストを受け取り、テキストを生成する抽象メソッド。
-        """
         pass
 
-# ==============================================================================
-# Gemini用テキスト生成器
-# ==============================================================================
 class GeminiTextGenerator(TextGenerator):
     """
     Google Gemini APIを使用したテキスト生成器。
     """
-    def __init__(
-            self, 
-            api_client: GeminiApiClient, 
-            write_config: WriteConfig
-        ):
-        
-        super().__init__(api_client, write_config)
-        # Gemini固有の初期化や設定が必要であればここに記述
+    def _build_gemini_config(self) -> types.GenerateContentConfig:
+        return types.GenerateContentConfig(
+            temperature=self.config.temperature,
+            top_p=self.config.top_p,
+            max_output_tokens=self.config.max_output_tokens
+        )
 
     def generate(self, messages: List[Dict[str, str]]) -> Optional[str]:
-        """
-        Gemini APIを使用してテキストを生成する。
-        """
-        # ここにGemini API用のgenerate_textロジックを実装
-        pass
+        try:
+            user_prompt = ""
+            for msg in reversed(messages):
+                if msg['role'] == 'user':
+                    user_prompt = msg['content']
+                    break
+            if not user_prompt:
+                raise ValueError("メッセージリストに 'user' ロールのプロンプトがありません。")
 
-# ==============================================================================
-# Llama.cpp用テキスト生成器
-# ==============================================================================
+            contents = [types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=user_prompt)]
+            )]
+            
+            # ヘルパーメソッドを呼び出して設定を構築
+            generation_config = self._build_gemini_config()
+
+            stream = self.api_client.client.models.generate_content_stream(
+                model=self.api_client.model_name,
+                contents=contents,
+                config=generation_config,
+            )
+
+            full_response = "".join(chunk.text for chunk in stream if chunk.text)
+            return full_response.strip()
+
+        except Exception as e:
+            print(f"Gemini APIでテキスト生成中にエラーが発生しました: {e}", file=sys.stderr)
+            raise
+
 class LlamaCppTextGenerator(TextGenerator):
-    """
-    Llama.cpp APIを使用したテキスト生成器。
-    """
-    def __init__(self, api_client: LlamaCppApiClient, write_config: WriteConfig):
-        super().__init__(api_client, write_config)
-        # Llama.cpp固有の初期化や設定が必要であればここに記述
+    def _build_llama_payload(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+        return {
+            "model": self.api_client.model_name,
+            "messages": messages,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_output_tokens,
+            "stream": False
+        }
 
     def generate(self, messages: List[Dict[str, str]]) -> Optional[str]:
-        """
-        Llama.cpp APIを使用してテキストを生成する。
-        """
-        # ここにLlama.cpp API用のgenerate_textロジックを実装
-        pass
+        try:
+            # ヘルパーメソッドを呼び出してペイロードを構築
+            payload = self._build_llama_payload(messages)
+            
+            response = requests.post(
+                self.api_client.api_url,
+                headers=self.api_client.headers,
+                data=json.dumps(payload),
+                timeout=120
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            return response_data['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            print(f"Llama.cpp APIでエラーが発生しました: {e}", file=sys.stderr)
+            raise
 
 # ==============================================================================
 # 音声生成器クラス (抽象)
 # ==============================================================================
-class SpeechGenerator(AbstractBaseGenerator):
-    """
-    音声生成器の抽象基底クラス。
-    APIタイプごとの音声生成器はこのクラスを継承する。
-    """
-    def __init__(self, api_client: ApiClient, speech_config: SpeechConfig, parent: Path, basename: str):
-        super().__init__(api_client, speech_config)
-        if not isinstance(speech_config, SpeechConfig):
-            raise TypeError("speech_configはSpeechConfigのサブクラスである必要があります。")
-        self.parent = parent
-        self.basename = basename
-        self._wav_file = None
-        self._mp3_file = None
-        # utils.audio_utils をインポート
-        from ..utils.audio_utils import AudioProcessor
-        self.audio_processor = AudioProcessor() # インスタンス化して利用
+class SpeechGenerator(abc.ABC):
+    def __init__(self, api_client: ApiClient, speech_config: SpeechConfig):
+        self.api_client = api_client
+        self.config = speech_config
+        self.audio_processor = AudioProcessor()
 
     @abc.abstractmethod
-    def generate(self, ssml_dialog: str) -> Optional[Path]:
+    def generate(self, ssml_dialog: str, characters: List[Character], output_path: Path) -> Optional[Path]:
         """
-        SSMLダイアログを受け取り、音声を生成してMP3ファイルパスを返す抽象メソッド。
+        SSMLダイアログから音声を生成し、指定されたパスにMP3ファイルとして保存する。
+
+        Args:
+            ssml_dialog (str): 音声合成するSSML形式のテキスト。
+            characters (List[Character]): 発話するキャラクターのリスト。
+            output_path (Path): 保存先のMP3ファイルパス。
+
+        Returns:
+            Optional[Path]: 成功した場合は保存先のファイルパス、失敗した場合はNone。
         """
         pass
 
-# ==============================================================================
-# Gemini用音声生成器
-# ==============================================================================
 class GeminiSpeechGenerator(SpeechGenerator):
     """
     Google Gemini APIを使用した音声生成器。
     """
-    def __init__(self, api_client: GeminiApiClient, speech_config: SpeechConfig, parent: Path, basename: str):
-        super().__init__(api_client, speech_config, parent, basename)
-        # Gemini固有の初期化や設定が必要であればここに記述
-
-    def generate(self, ssml_dialog: str) -> Optional[Path]:
+    def _build_gemini_speech_config(self, characters: List[Character]) -> types.GenerateContentConfig:
         """
-        Gemini APIを使用して音声を生成し、MP3ファイルとして保存。
+        [内部メソッド] キャラクターリストからGemini用の音声設定を構築する。
         """
-        # ここにGemini API用のgenerate_audioロジックを実装
-        pass
+        num_speakers = len(characters)
+        speech_config = None
 
-# ==============================================================================
-# Llama.cpp用音声生成器 (Llama.cppは音声生成をサポートしないため、ダミークラスとするか、実装しない)
-# ==============================================================================
+        if num_speakers == 1:
+            # 単一話者設定
+            voice_config = types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name=characters[0].voice.api_name
+                )
+            )
+            speech_config = types.SpeechConfig(voice_config=voice_config)
+        elif num_speakers > 1:
+            # 複数話者設定
+            speaker_configs = [
+                types.SpeakerVoiceConfig(
+                    speaker=char.name,
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=char.voice.api_name
+                        )
+                    )
+                ) for char in characters
+            ]
+            multi_speaker_config = types.MultiSpeakerVoiceConfig(speaker_voice_configs=speaker_configs)
+            speech_config = types.SpeechConfig(multi_speaker_voice_config=multi_speaker_config)
+
+        if speech_config is None:
+            raise ValueError("音声生成には少なくとも1人のキャラクターが必要です。")
+
+        return types.GenerateContentConfig(
+            temperature=self.config.temperature,
+            response_modalities=["audio"],
+            speech_config=speech_config
+        )
+
+    def generate(self, ssml_dialog: str, characters: List[Character], output_path: Path) -> Optional[Path]:
+        try:
+            # ヘルパーメソッドでGemini用の設定を構築
+            generation_config = self._build_gemini_speech_config(characters)
+            
+            contents = [types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=ssml_dialog)]
+            )]
+
+            stream = self.api_client.client.models.generate_content_stream(
+                model=self.api_client.model_name,
+                contents=contents,
+                config=generation_config,
+            )
+
+            full_audio_data = bytearray()
+            final_mime_type = None
+            for chunk in stream:
+                if (chunk.candidates and chunk.candidates[0].content and
+                        chunk.candidates[0].content.parts and chunk.candidates[0].content.parts[0].inline_data):
+                    inline_data = chunk.candidates[0].content.parts[0].inline_data
+                    full_audio_data.extend(inline_data.data)
+                    final_mime_type = inline_data.mime_type
+            
+            if not full_audio_data or not final_mime_type:
+                print("警告: APIから音声データが返されませんでした。")
+                return None
+
+            # AudioProcessorを使ってWAV変換とMP3保存を行う
+            wav_bytes = self.audio_processor.convert_to_wav(bytes(full_audio_data), final_mime_type)
+            return self.audio_processor.save_as_mp3(wav_bytes, output_path)
+
+        except Exception as e:
+            print(f"Gemini APIで音声生成中にエラーが発生しました: {e}", file=sys.stderr)
+            raise
+
 class LlamaCppSpeechGenerator(SpeechGenerator):
     """
-    Llama.cpp APIには音声生成機能がないため、このクラスは音声生成をサポートしません。
+    Llama.cppは音声生成をサポートしていません。
     """
-    def __init__(self, api_client: LlamaCppApiClient, speech_config: SpeechConfig, parent: Path, basename: str):
-        super().__init__(api_client, speech_config, parent, basename)
-        print("LlamaCppSpeechGeneratorは音声生成をサポートしていません。")
-
-    def generate(self, ssml_dialog: str) -> Optional[Path]:
-        """
-        Llama.cppは音声生成をサポートしないため、常にNoneを返す。
-        """
+    def generate(self, ssml_dialog: str, characters: List[Character], output_path: Path) -> Optional[Path]:
         print("警告: Llama.cppは音声生成をサポートしていません。", file=sys.stderr)
         return None
 

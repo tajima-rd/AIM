@@ -15,17 +15,14 @@ from typing import (
 )
 
 @dataclass
-class TextParams:
+class WriteConfig:
     temperature: float = 0.8
     top_p: float = 0.95
     max_output_tokens: int = 8192
-    thinking_budget: int = -1
-    # 今後、テキスト生成に関するパラメータが増えたらここに追加する
 
 @dataclass
-class SpeechParams:
+class SpeechConfig:
     temperature: float = 1.0
-    # 今後、音声生成に関する共通パラメータが増えたらここに追加する
 
 @dataclass
 class Script:
@@ -147,31 +144,29 @@ class SceneConfig(ABC):
     各モダリティは独立したパラメータオブジェクトによって設定される。
     """
     def __init__(self,
-                 speech_params: Optional[SpeechParams] = None,
-                 text_params: Optional[TextParams] = None,
+                 speech_config: Optional['SpeechConfig'] = None,
+                 text_config: Optional['WriteConfig'] = None,
                  scene_prompt: Optional[str] = None
                 ):
         """
         Args:
-            speech_params (Optional[SpeechParams]): 音声生成用のパラメータオブジェクト。
-            text_params (Optional[TextParams]): テキスト生成用のパラメータオブジェクト。
+            speech_config (Optional[SpeechConfig]): 音声生成用の設定オブジェクト。
+            text_config (Optional[WriteConfig]): テキスト生成用の設定オブジェクト。
             scene_prompt (Optional[str]): このシーンの設定を微調整するための共通プロンプト。
         """
-        self.speech_params = speech_params
-        self.text_params = text_params
+        # ★★★ 修正点: 属性名を ..._params から ..._config に変更 ★★★
+        self.speech_config = speech_config
+        self.text_config = text_config
         self.scene_prompt = scene_prompt
 
-        # 渡されたパラメータオブジェクトに基づいて、このインスタンスがサポートする
-        # モダリティを動的に決定する。
         self.modalities: List[str] = []
-        if self.speech_params is not None:
+        if self.speech_config is not None:
             self.modalities.append("audio")
-        if self.text_params is not None:
+        if self.text_config is not None:
             self.modalities.append("text")
 
-        # どちらのパラメータも渡されなかった場合はエラー
         if not self.modalities:
-            raise ValueError("speech_params または text_params の少なくとも一方は提供される必要があります。")
+            raise ValueError("speech_config または text_config の少なくとも一方は提供される必要があります。")
 
     def get_speech_config(self) -> types.GenerateContentConfig:
         """
@@ -212,21 +207,13 @@ class Monolog(SceneConfig):
     """
     def __init__(self,
                  speaker: Character,
-                 speech_params: Optional[SpeechParams] = None,
-                 text_params: Optional[TextParams] = None,
+                 speech_config: Optional['SpeechConfig'] = None,
+                 text_config: Optional['WriteConfig'] = None,
                  scene_prompt: Optional[str] = None
                 ):
-        """
-        Args:
-            speaker (Character): 独白を行う単一のキャラクター。
-            speech_params (Optional[SpeechParams]): 音声生成用のパラメータ。
-            text_params (Optional[TextParams]): テキスト生成用のパラメータ。
-            scene_prompt (Optional[str]): このシーンの設定を微調整するための共通プロンプト。
-        """
-        # 親クラスのコンストラクタを呼び出し、パラメータを初期化
         super().__init__(
-            speech_params, 
-            text_params, 
+            speech_config, 
+            text_config, 
             scene_prompt
         )
 
@@ -276,21 +263,13 @@ class Narration(SceneConfig):
     """
     def __init__(self,
                  speaker: Character,
-                 speech_params: Optional[SpeechParams] = None,
-                 text_params: Optional[TextParams] = None,
+                 speech_config: Optional['SpeechConfig'] = None,
+                 text_config: Optional['WriteConfig'] = None,
                  scene_prompt: Optional[str] = None
                 ):
-        """
-        Args:
-            speaker (Character): 独白を行う単一のキャラクター。
-            speech_params (Optional[SpeechParams]): 音声生成用のパラメータ。
-            text_params (Optional[TextParams]): テキスト生成用のパラメータ。
-            scene_prompt (Optional[str]): このシーンの設定を微調整するための共通プロンプト。
-        """
-        # 親クラスのコンストラクタを呼び出し、パラメータを初期化
         super().__init__(
-            speech_params, 
-            text_params, 
+            speech_config, 
+            text_config, 
             scene_prompt
         )
 
@@ -343,14 +322,14 @@ class Dialog(SceneConfig):
                 self,
                 character_1: Character,
                 character_2: Character,
-                speech_params: Optional[SpeechParams] = None,
-                text_params: Optional[TextParams] = None,
+                speech_config: Optional['SpeechConfig'] = None,
+                text_config: Optional['WriteConfig'] = None,
                 scene_prompt: Optional[str] = None
             ):
 
         super().__init__(
-            speech_params,
-            text_params,
+            speech_config,
+            text_config,
             scene_prompt
         )
 
@@ -418,15 +397,14 @@ class Discussion(SceneConfig):
     def __init__(
                 self,
                 participants: List[Character],
-                speech_params: Optional[SpeechParams] = None,
-                text_params: Optional[TextParams] = None,
+                speech_config: Optional['SpeechConfig'] = None,
+                text_config: Optional['WriteConfig'] = None,
                 scene_prompt: Optional[str] = None
             ):
 
-        # 親クラスのコンストラクタを呼び出し、パラメータを初期化
         super().__init__(
-            speech_params,
-            text_params,
+            speech_config,
+            text_config,
             scene_prompt
         )
 
@@ -568,102 +546,84 @@ class Project:
         
         self.wait_time = wait_time
 
-class SpeechConfig:
-    def __init__(self, temperature=1.0, modalities=["audio"], speakers: Dict=None):
-        try:
-            self.temperature = temperature
-            self.modalities = modalities
+# class SpeechConfig:
+#     def __init__(self, temperature=1.0, modalities=["audio"], speakers: Dict=None):
+#         try:
+#             self.temperature = temperature
+#             self.modalities = modalities
             
-            # 各設定を格納するためのインスタンス変数を初期化
-            self.single_speaker_voice_config = None
-            self.multi_speaker_voice_config = None
+#             # 各設定を格納するためのインスタンス変数を初期化
+#             self.single_speaker_voice_config = None
+#             self.multi_speaker_voice_config = None
 
-            speaker_config_list = []
-            if speakers:
-                for character, voice_name in speakers.items():
-                    single_speaker_model = types.SpeakerVoiceConfig(
-                        speaker=character,
-                        voice_config=types.VoiceConfig(
-                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                voice_name=voice_name
-                            )
-                        ),
-                    )
-                    speaker_config_list.append(single_speaker_model)
+#             speaker_config_list = []
+#             if speakers:
+#                 for character, voice_name in speakers.items():
+#                     single_speaker_model = types.SpeakerVoiceConfig(
+#                         speaker=character,
+#                         voice_config=types.VoiceConfig(
+#                             prebuilt_voice_config=types.PrebuiltVoiceConfig(
+#                                 voice_name=voice_name
+#                             )
+#                         ),
+#                     )
+#                     speaker_config_list.append(single_speaker_model)
             
-            num_speakers = len(speaker_config_list)
+#             num_speakers = len(speaker_config_list)
 
-            if num_speakers == 0:
-                print("Warning: No speakers provided. Using default simple config.")
-                self.model_config = self._get_simple_config()
-            elif num_speakers == 1:
-                print("Warning: Only one speaker provided. Using single speaker config.")
-                # SpeakerVoiceConfigからVoiceConfigを取り出して単一話者用の変数に格納
-                self.single_speaker_voice_config = speaker_config_list[0]
-                self.model_config = self._get_single_speaker_config()
-                print(self.model_config)
-            else:
-                print(f"Using multi-speaker config with {num_speakers} speakers.")
-                # 複数話者用の設定オブジェクトを生成して変数に格納
-                self.multi_speaker_voice_config = types.MultiSpeakerVoiceConfig(
-                    speaker_voice_configs=speaker_config_list
-                )
-                self.model_config = self._get_multi_speaker_config()
+#             if num_speakers == 0:
+#                 print("Warning: No speakers provided. Using default simple config.")
+#                 self.model_config = self._get_simple_config()
+#             elif num_speakers == 1:
+#                 print("Warning: Only one speaker provided. Using single speaker config.")
+#                 # SpeakerVoiceConfigからVoiceConfigを取り出して単一話者用の変数に格納
+#                 self.single_speaker_voice_config = speaker_config_list[0]
+#                 self.model_config = self._get_single_speaker_config()
+#                 print(self.model_config)
+#             else:
+#                 print(f"Using multi-speaker config with {num_speakers} speakers.")
+#                 # 複数話者用の設定オブジェクトを生成して変数に格納
+#                 self.multi_speaker_voice_config = types.MultiSpeakerVoiceConfig(
+#                     speaker_voice_configs=speaker_config_list
+#                 )
+#                 self.model_config = self._get_multi_speaker_config()
 
-        except Exception as e:
-            print(f"Content Config の生成に失敗しました: {e}")
-            raise
+#         except Exception as e:
+#             print(f"Content Config の生成に失敗しました: {e}")
+#             raise
 
 
-    def _get_simple_config(self):
-        return types.GenerateContentConfig(
-            temperature=self.temperature,  # Adjust temperature as needed (higher = more varied speech)
-            response_modalities=self.modalities,
-        )
+#     def _get_simple_config(self):
+#         return types.GenerateContentConfig(
+#             temperature=self.temperature,  # Adjust temperature as needed (higher = more varied speech)
+#             response_modalities=self.modalities,
+#         )
     
-    def _get_single_speaker_config(self):
-        print("Information: Single Speaker is selected.")
-        if self.single_speaker_voice_config is not None:
-            # GenerateContentConfigにはSpeechConfigオブジェクトを渡します
-            return types.GenerateContentConfig(
-                temperature = self.temperature,
-                response_modalities = self.modalities,
-                speech_config = types.SpeechConfig(
-                    voice_config = self.single_speaker_voice_config.voice_config
-                )
-            )
-        else:
-            print("Warning: No speaker configuration provided. Using default content config.")
-            return self._get_simple_config()
+#     def _get_single_speaker_config(self):
+#         print("Information: Single Speaker is selected.")
+#         if self.single_speaker_voice_config is not None:
+#             # GenerateContentConfigにはSpeechConfigオブジェクトを渡します
+#             return types.GenerateContentConfig(
+#                 temperature = self.temperature,
+#                 response_modalities = self.modalities,
+#                 speech_config = types.SpeechConfig(
+#                     voice_config = self.single_speaker_voice_config.voice_config
+#                 )
+#             )
+#         else:
+#             print("Warning: No speaker configuration provided. Using default content config.")
+#             return self._get_simple_config()
     
-    def _get_multi_speaker_config(self):
-        print("Information: Multi Speaker is selected.")
-        if not self.multi_speaker_voice_config == None:
-            return types.GenerateContentConfig(
-                temperature = self.temperature, # Adjust temperature as needed (higher = more varied speech)
-                response_modalities = self.modalities,
-                speech_config = types.SpeechConfig(
-                    multi_speaker_voice_config = self.multi_speaker_voice_config
-                )
-            )
-        else:
-            print("Warning: No speaker configuration provided. Using default content config.")
-            self.get_simple_config()
-
-class WriteConfig:
-    def __init__(self, temperature=1.0, top_p=0.95, max_output_tokens=65536, thinking_budget=-1):
-        self.temperature = temperature
-        self.top_p = top_p
-        self.max_output_tokens = max_output_tokens
-        self.thinking_budget = thinking_budget
-        self.model_config = self._create_content_config()
-
-    def _create_content_config(self):
-        return types.GenerateContentConfig(
-            temperature=self.temperature,
-            top_p=self.top_p,
-            max_output_tokens=self.max_output_tokens,
-            thinking_config = types.ThinkingConfig(
-                thinking_budget = self.thinking_budget,
-            ),
-        )
+#     def _get_multi_speaker_config(self):
+#         print("Information: Multi Speaker is selected.")
+#         if not self.multi_speaker_voice_config == None:
+#             return types.GenerateContentConfig(
+#                 temperature = self.temperature, # Adjust temperature as needed (higher = more varied speech)
+#                 response_modalities = self.modalities,
+#                 speech_config = types.SpeechConfig(
+#                     multi_speaker_voice_config = self.multi_speaker_voice_config
+#                 )
+#             )
+#         else:
+#             print("Warning: No speaker configuration provided. Using default content config.")
+#             self.get_simple_config()
