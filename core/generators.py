@@ -22,7 +22,7 @@ from .models import (
     WriteConfig,
     SpeechConfig
 )
-from aim_lib.utils.audio_processor import AudioProcessor
+from ..utils.audio_processor import AudioProcessor
 
 
 # ==============================================================================
