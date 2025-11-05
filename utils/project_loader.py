@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, List
 
-from core.models import (
+from AIM.core.config import (
     Project, 
     Character, 
     Voice

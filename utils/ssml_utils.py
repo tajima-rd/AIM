@@ -7,7 +7,7 @@ from typing import Dict
 
 import re
 from typing import List
-from core.models import Character
+from AIM.core.config import Character
  
 
 # from core.character import Character # Characterクラスをインポート

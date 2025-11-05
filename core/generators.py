@@ -16,7 +16,7 @@ from .api_client import (
     GeminiApiClient, 
     LlamaCppApiClient
 )
-from .models import (
+from .config import (
     Character,
     SceneConfig,
     WriteConfig,

@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from core.api_client import GeminiApiClient
 
 from core.generators import TextGenerator
-from core.models import WriteConfig, Character
+from AIM.core.config import WriteConfig, Character
 
 import re
 from typing import List, Dict

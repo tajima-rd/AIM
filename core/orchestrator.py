@@ -6,7 +6,7 @@ from typing import Dict, List
 
 
 try:
-    from .models import (
+    from .config import (
         SpeechConfig, 
         Character
     )

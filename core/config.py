@@ -1,5 +1,5 @@
 # AiRadioDramaCreator/core/models.py
-from google.genai import types
+from google.genai import types # type: ignore
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -13,6 +13,8 @@ from typing import (
     Any, 
     Optional
 )
+from ..models.drama import Character
+
 
 @dataclass
 class WriteConfig:
@@ -23,120 +25,6 @@ class WriteConfig:
 @dataclass
 class SpeechConfig:
     temperature: float = 1.0
-
-@dataclass
-class Script:
-    order: int
-    voice: str
-    text : str
-
-    def get_line(self):
-        return "{self.voice}: {text}\n\n"
-
-class Voice(Enum):
-    """
-    利用可能な話者の情報を定義する列挙型。    
-    使用例:
-    Voice.ACHERNAR.api_name
-    """
-    def __init__(
-                self, 
-                api_name: str, 
-                description: str, 
-                gender: str
-            ):
-
-        self.api_name = api_name
-        self.description = description
-        self.gender = gender
-
-    # --- 話者リスト ---
-    # Enumメンバー名 = (API名, 特徴, 性別)
-    ACHERNAR = ("Achernar", "Soft", "F")
-    ACHIRD = ("Achird", "Friendly", "M")
-    ALGENIB = ("Algenib", "Gravelly", "M")
-    ALGIEBA = ("Algieba", "Smooth", "M")
-    ALNILAM = ("Alnilam", "Firm", "M")
-    AOEDE = ("Aoede", "Breezy", "F")
-    AUTONOE = ("Autonoe", "Bright", "F")
-    CALLIRRHOE = ("Callirrhoe", "Easy-going", "F")
-    CHARON = ("Charon", "Informative", "M")
-    DESPINA = ("Despina", "Smooth", "F")
-    ENCELADUS = ("Enceladus", "Breathy", "M")
-    ERINOME = ("Erinome", "Clear", "F")
-    FENRIR = ("Fenrir", "Excitable", "M")
-    GACRUX = ("Gacrux", "Mature", "F")
-    IAPETUS = ("Iapetus", "Clear", "M")
-    KORE = ("Kore", "Firm", "F")
-    LAOMEDEIA = ("Laomedeia", "Upbeat", "F")
-    LEDA = ("Leda", "Youthful", "F")
-    ORUS = ("Orus", "Firm", "M")
-    PUCK = ("Puck", "Upbeat", "M")
-    PULCHERRIMA = ("Pulcherrima", "Forward", "M")
-    RASALGETHI = ("Rasalgethi", "Informative", "M")
-    SADACHBIA = ("Sadachbia", "Lively", "M")
-    SADALTAGER = ("Sadaltager", "Knowledgeable", "M")
-    SCHEDAR = ("Schedar", "Even", "M")
-    SULAFAT = ("Sulafat", "Warm", "F")
-    UMBRIEL = ("Umbriel", "Easy-going", "M")
-    VINDEMIATRIX = ("Vindemiatrix", "Gentle", "F")
-    ZEPHYR = ("Zephyr", "Bright", "F")
-    ZUBENELGENUBI = ("Zubenelgenubi", "Casual", "M")
-
-    @classmethod
-    def get_female_voices(cls):
-        """女性の話者のみをリストで返します。"""
-        return [member for member in cls if member.gender == 'F']
-
-    @classmethod
-    def get_male_voices(cls):
-        """男性の話者のみをリストで返します。"""
-        return [member for member in cls if member.gender == 'M']
-
-class Character:
-    def __init__(
-            self,
-            name: str,
-            voice: Voice,
-            personality: str,
-            traits: List[str],
-            speech_style: str,
-            verbal_tics: List[str],
-            background: Optional[str] = None,
-            role: Optional[str] = None):
-        self.name: str = name
-        self.voice: str = voice
-        self.personality: str = personality
-        self.traits: List[str] = traits
-        self.speech_style: str = speech_style
-        self.verbal_tics: List[str] = verbal_tics
-        self.background: Optional[str] = background
-        self.role: Optional[str] = role
-    
-    def get_character_prompt(self) -> str:
-        """
-        このキャラクターの属性に基づいて、AI用のプロンプト文字列を生成する。
-        """
-        # プロンプトの各行をリストとして構築していくと、管理がしやすい
-        prompt_parts = []
-        prompt_parts.append(f"### {self.name}")
-
-        # Noneや空でない属性だけをプロンプトに追加する
-        if self.personality:
-            prompt_parts.append(f"- 性格: {self.personality}")
-        if self.speech_style:
-            prompt_parts.append(f"- 話し方: {self.speech_style}")
-        if self.traits:
-            prompt_parts.append(f"- 特性: {', '.join(self.traits)}")
-        if self.verbal_tics:
-            prompt_parts.append(f"- 口癖: {', '.join(self.verbal_tics)}")
-        if self.background:
-            prompt_parts.append(f"- 背景設定: {self.background}")
-        if self.role:
-            prompt_parts.append(f"- 役割: {self.role}")
-        
-        # 各行を改行で結合し、最後にキャラクター間の区切りとして空行を2つ追加する
-        return "\n".join(prompt_parts) + "\n\n"
 
 class SceneConfig(ABC):
     """
@@ -154,7 +42,6 @@ class SceneConfig(ABC):
             text_config (Optional[WriteConfig]): テキスト生成用の設定オブジェクト。
             scene_prompt (Optional[str]): このシーンの設定を微調整するための共通プロンプト。
         """
-        # ★★★ 修正点: 属性名を ..._params から ..._config に変更 ★★★
         self.speech_config = speech_config
         self.text_config = text_config
         self.scene_prompt = scene_prompt
@@ -339,8 +226,6 @@ class Dialog(SceneConfig):
         if not isinstance(character_2, Character):
             raise TypeError("character_2 はCharacterオブジェクトである必要があります。")
 
-        # ★★★ 修正点 ★★★
-        # 登場人物を個別の変数として保持し、意図を明確化する
         self.character_1 = character_1
         self.character_2 = character_2
 
@@ -349,8 +234,6 @@ class Dialog(SceneConfig):
         """
         【実装】二人会話向けの音声生成設定を構築する。
         """
-        # ★★★ 修正点 ★★★
-        # 2人の登場人物から設定リストを構築する
         characters_in_dialog = [self.character_1, self.character_2]
 
         speaker_config_list = [
@@ -377,9 +260,6 @@ class Dialog(SceneConfig):
         )
 
     def _build_text_config(self) -> types.GenerateContentConfig:
-        """
-        【実装】テキスト生成設定を構築する。
-        """
         return types.GenerateContentConfig(
             temperature=self.text_params.temperature,
             top_p=self.text_params.top_p,
@@ -408,7 +288,6 @@ class Discussion(SceneConfig):
             scene_prompt
         )
 
-        # ★★★ バリデーションを修正 ★★★
         if not isinstance(participants, list) or len(participants) < 3:
             raise ValueError("Discussionのparticipantsは3人以上のCharacterを含むリストである必要があります。")
         
@@ -461,87 +340,3 @@ class Discussion(SceneConfig):
                 thinking_budget=self.text_params.thinking_budget,
             )
         )
-
-class Scene:
-    order: int
-
-    def __init__(
-            self,
-            scene_config: SceneConfig,
-            script: str
-    ):
-        self.scene_config = scene_config
-        self.script = script
-
-class Chapter:
-    scenes:List[Scene]
-
-    def __init__(self):
-        self.scenes = list()
-    
-    def insert(self, scene):
-        num = len(self.scenes)
-        scene.order = num
-        self.scenes.append(scene)
-
-class Senario:
-    def __init__(self, chapters, summary):
-        self.chapters = chapters
-        self.summary = summary
-    
-    def get_current_chapter(self):
-        pass
-    
-    def get_previous_chapter(selfr):
-        pass
-    
-    def get_next_chapter(self):
-        pass
-
-class Project:
-    def __init__(self, 
-        project_name: str = "", 
-        project_description: str = "", 
-        author: str = "", 
-        version: str = "", 
-        api_keys: Optional[List[str]] = None,
-        api_index: Optional[int] = None,
-        speech_model: Optional[str] = None,
-        text_model: Optional[str] = None,
-        created_date: Optional[str] = None,
-        updated_date: Optional[str] = None,
-        root_path: Optional[str] = None,
-        characters: Optional[List[Character]] = None,
-        wait_time: int = 30
-    ):
-        self.project_name = project_name
-        self.project_description = project_description
-        self.author = author
-        self.version = version
-        self.api_keys = api_keys if api_keys is not None else []
-        self.api_index = api_index
-        self.speech_model = speech_model
-        self.text_model = text_model
-
-        self.created_at = created_date if created_date is not None else datetime.now().isoformat()
-        self.updated_at = updated_date if updated_date is not None else datetime.now().isoformat()
-
-        self.root_path = None
-        if root_path:
-            resolved_root_path = Path(root_path).resolve()
-            try:
-                resolved_root_path.mkdir(parents=True, exist_ok=True)
-                subdirs = ["persona", "script", "dialog", "ssml", "audio"]
-                for subdir in subdirs:
-                    (resolved_root_path / subdir).mkdir(exist_ok=True)
-                self.root_path = resolved_root_path
-            except Exception as e:
-                import sys
-                print(f"Warning: Could not create project directories at '{root_path}': {e}", file=sys.stderr)
-                self.root_path = Path(root_path)
-        
-        # ★★★ ここを修正 ★★★
-        # self.speakers = speakers ... の行を完全に置き換える
-        self.characters = characters if characters is not None else []
-        
-        self.wait_time = wait_time
