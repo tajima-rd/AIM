@@ -2,7 +2,7 @@ import abc # 抽象基底クラスを定義するためにインポート
 import sys
 import json
 import requests
-from google.genai import types
+from google.genai import types # type: ignore
 from pathlib import Path
 from typing import (
     List, 
@@ -11,14 +11,9 @@ from typing import (
     Any, 
     Optional
 )
-from .api_client import (
-    ApiClient,
-    GeminiApiClient, 
-    LlamaCppApiClient
-)
+from .api_client import ApiClient
 from .config import (
     Character,
-    SceneConfig,
     WriteConfig,
     SpeechConfig
 )
