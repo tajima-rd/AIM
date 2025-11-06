@@ -1,6 +1,7 @@
+import os
 import yaml
 from jinja2 import Template
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 
 def load_yaml_prompt(path: str) -> Dict:
@@ -8,12 +9,11 @@ def load_yaml_prompt(path: str) -> Dict:
     YAMLテンプレを読み込む（辞書で返す）。
     """
     if not os.path.exists(path):
-        logger.error("プロンプトYAMLが見つかりません: %s", path)
         raise FileNotFoundError(path)
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
-def render_yaml_prompt(yaml_prompt: Dict, variables: Dict[str, str]) -> (str, str):
+def render_yaml_prompt(yaml_prompt: Dict, variables: Dict[str, str]) -> tuple[str, str]:
     """
     YAML内の system と task を Jinja2 でレンダリングして返す（system, user_task_text）。
     """

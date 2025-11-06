@@ -1,4 +1,5 @@
-import re, os, sys
+import re, os, sys, json
+import logging
 from pypdf import PdfReader
 from jinja2 import Template
 from typing import List, Dict, Optional
@@ -20,7 +21,7 @@ from typing import List, Dict, Optional
 # ---------------------------
 def extract_pdf_text(path: str) -> str:
     if not os.path.exists(path):
-        logger.error("PDF not found: %s", path)
+        print("PDF not found: %s", path)
         return ""
     reader = PdfReader(path)
     pages = []
@@ -66,7 +67,7 @@ def safe_parse_json(s: str) -> Optional[Dict]:
         if isinstance(obj, dict):
             return obj
     except Exception as e:
-        logger.warning("JSON parse failed: %s", e)
+        print("JSON parse failed: %s", e)
     return None
 
 
