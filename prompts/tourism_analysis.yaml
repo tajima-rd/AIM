@@ -28,6 +28,11 @@ user:
       - 思考過程の開示（出力に含めない）
       - output_format への追加項目や改変は禁止。
       - output_format への項目は空であっても省略は禁止。
+  input:
+    must:
+      - [VAR]
+    option:
+      - [VAR]
   output: |
     {
       "background": "string (約200字)", "tourist_data_summary": "string (約400字)",
