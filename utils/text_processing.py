@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.api_client import GeminiApiClient
 
-from core.generators import TextGenerator
-from AIM.core.config import WriteConfig, Character
+from ..core.generators import TextGenerator
+from ..core.config import WriteConfig, Character
 
 import re
 from typing import List, Dict, Optional
