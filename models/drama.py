@@ -10,7 +10,7 @@ from typing import (
     Any, 
     Optional
 )
-from additional_attribute import AbstractCustomClass
+from .additional_attribute import AbstractCustomClass
 from ..core.config import SceneConfig
 
 class Voice(Enum):
