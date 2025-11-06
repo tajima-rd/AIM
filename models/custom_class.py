@@ -3,8 +3,7 @@ from abc import ABC
 from types import SimpleNamespace
 from typing import List, Any, NamedTuple
 
-from ..models.metadata import AddtionalAttribute
-
+from .additional_attribute import AddtionalAttribute
 
 class AbstractCustomClass(ABC):
     def define_custom_table():
