@@ -1,5 +1,8 @@
 import re, os, sys
-from typing import Dict, List
+from pypdf import PdfReader
+from jinja2 import Template
+from typing import List, Dict, Optional
+
 
 # 循環参照を避けるため、型チェック時のみインポート
 from typing import TYPE_CHECKING
@@ -10,7 +13,62 @@ from core.generators import TextGenerator
 from AIM.core.config import WriteConfig, Character
 
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional
+
+# ---------------------------
+# Utility: PDF text extraction
+# ---------------------------
+def extract_pdf_text(path: str) -> str:
+    if not os.path.exists(path):
+        logger.error("PDF not found: %s", path)
+        return ""
+    reader = PdfReader(path)
+    pages = []
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            pages.append(text.strip())
+    return "\n\n".join(pages)
+
+# ---------------------------
+# Utility: Basic chunking for long text
+# ---------------------------
+def chunk_text(text: str, max_chars: int = 3000) -> List[str]:
+    if not text:
+        return []
+    chunks = []
+    start = 0
+    length = len(text)
+    while start < length:
+        end = min(length, start + max_chars)
+        # try to cut at newline for nicer chunks
+        if end < length:
+            nl = text.rfind("\n", start, end)
+            if nl > start:
+                end = nl
+        chunks.append(text[start:end].strip())
+        start = end
+    return chunks
+
+# ---------------------------
+# Utility: Jinja2 render prompt YAML-like dict
+# ---------------------------
+def render_task_template(task_template: str, variables: Dict[str, str]) -> str:
+    tmpl = Template(task_template)
+    return tmpl.render(**variables)
+
+# ---------------------------
+# Utility: Safe JSON parse with validation
+# ---------------------------
+def safe_parse_json(s: str) -> Optional[Dict]:
+    try:
+        obj = json.loads(s)
+        if isinstance(obj, dict):
+            return obj
+    except Exception as e:
+        logger.warning("JSON parse failed: %s", e)
+    return None
+
 
 def get_ordered_characters(text: str, all_characters: List[Character]) -> List[Character]:
     """
