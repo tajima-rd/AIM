@@ -4,7 +4,7 @@ from typing import List, Any, NamedTuple
 from abc import ABC 
 import psycopg2
 import psycopg2.extras
-from models.metadata import AddtionalAttribute
+from ..models.metadata import AddtionalAttribute
 
 import psycopg2
 import psycopg2.extras
