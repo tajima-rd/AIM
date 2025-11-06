@@ -12,7 +12,7 @@ from typing import (
     Literal,
     Optional
 )
-from ..core.database import AbstractCustomClass
+from .custom_class import AbstractCustomClass
 from iso_objects.iso19115 import CI_Contact
 
 URI_TYPE = Literal[
