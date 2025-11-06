@@ -78,9 +78,11 @@ class PromptTemplate:
         self.system = system_prompt
 
     @classmethod
-    def from_yaml(cls, yaml_string: str) -> 'PromptTemplate':
+    def from_yaml(cls, yaml_path: str) -> 'PromptTemplate':
         """YAML文字列からPromptTemplateオブジェクトを生成する"""
-        data = yaml.safe_load(yaml_string)
+        data = None
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
         
         # --- Systemプロンプトの構築 ---
         system_data = data.get('system', {})
