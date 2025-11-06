@@ -11,7 +11,6 @@ from typing import (
     Optional
 )
 from .custom_class import AbstractCustomClass
-from ..core.config import SceneConfig
 
 class Voice(Enum):
     """
@@ -145,14 +144,12 @@ class Scene:
 
     def __init__(
             self,
-            scene_config: SceneConfig,
             situation: str = "",
             characters: List[Character] = None,
             place: str = "",
             scripts: List[Script] = None,
             additional_attributes = List[AbstractCustomClass]
     ):
-        self.scene_config = scene_config
         self.situation = situation
         self.characters = characters
         self.place = place
