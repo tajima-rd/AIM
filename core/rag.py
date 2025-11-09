@@ -4,8 +4,7 @@ import argparse
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
-
-from ...utils.text_processing import extract_pdf_text, chunk_text  # [`lib/aim/utils/text_processing.py`]
+from ..utils.text_processing import extract_pdf_text, chunk_text  # [`lib/aim/utils/text_processing.py`]
 
 CHROMA_PERSIST_DIR = Path(".chromadb")
 
