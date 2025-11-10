@@ -37,8 +37,6 @@ except ImportError:
     print("Please install them via: pip install chromadb sentence-transformers")
     exit(1)
 
-# このスクリプトが lib/aim/rag/chroma_client.py にあると仮定し、
-# 2階層上の lib/aim/utils/text_processing.py をインポートする
 try:
     from ...utils.text_processing import extract_pdf_text, chunk_text
 except ImportError:
@@ -52,18 +50,11 @@ except ImportError:
         print(f"[Warning] Using DUMMY chunk_text (size: {max_chars})")
         return [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
 
-
-# --- 定数 ---
 CHROMA_PERSIST_DIR = Path(".chromadb")
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_CHUNK_SIZE = 2000
 
-# --- ロガーの設定 ---
-# (ライブラリとして import される場合、
-#  logging.basicConfig() は呼び出し側で行うべき)
 logger = logging.getLogger(__name__)
-
-# --- クライアント管理 ---
 
 def create_chroma_client(persist_directory: Path = CHROMA_PERSIST_DIR) -> chromadb.Client:
     """
@@ -78,8 +69,6 @@ def create_chroma_client(persist_directory: Path = CHROMA_PERSIST_DIR) -> chroma
     )
     client = chromadb.Client(settings)
     return client
-
-# --- インデックス作成 ---
 
 def build_index_from_files(
     client: chromadb.Client,
@@ -172,8 +161,6 @@ def index_folder_to_chroma(
         logger.error(f"index_folder_to_chroma failed: {e}", exc_info=True)
         print(f"Error during indexing: {e}")
 
-# --- クエリ実行 ---
-
 def query_chroma(
     collection_name: str, 
     question: str, 
@@ -209,8 +196,6 @@ def query_chroma(
         logger.error(f"Failed to query collection {collection_name}: {e}", exc_info=True)
         print(f"Error querying collection: {e}")
         return []
-
-# --- CLI実行 ---
 
 def main():
     """
