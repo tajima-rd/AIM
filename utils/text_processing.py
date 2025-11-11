@@ -4,7 +4,7 @@ from pypdf import PdfReader
 from jinja2 import Template
 from docling import Docling
 from typing import List, Dict, Optional
-
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # 循環参照を避けるため、型チェック時のみインポート
 from typing import TYPE_CHECKING
@@ -17,40 +17,142 @@ from ..core.config import WriteConfig, Character
 import re
 from typing import List, Dict, Optional
 
+
+# --- RAG用に改善されたチャンキング関数 ---
+JP_SEPARATORS = ["\n\n", "。", "\n", "、", ""]
+
+# スプリッターをグローバル（またはクラスのメンバ）として一度だけ初期化するのが効率的
+# chunk_size や chunk_overlap は、使用する埋め込みモデルや対象文書に応じて調整が必要
+text_splitter = RecursiveCharacterTextSplitter(
+    separators=JP_SEPARATORS,
+    chunk_size=500,      # チャンクの最大文字数（RAGでは小さめが推奨されることが多い）
+    chunk_overlap=50,    # チャンク間の重複文字数
+    add_start_index=True # (オプション) 元テキストのどこから始まったかを記録
+)
+
 # ---------------------------
 # Utility: PDF text extraction
 # ---------------------------
-def extract_pdf_text(path: str) -> str:
-    if not os.path.exists(path):
-        print("PDF not found: %s", path)
+try:
+    # デフォルト設定でパーサーを初期化
+    docling_parser = Docling()
+except Exception as e:
+    print(f"doclingパーサーの初期化に失敗しました: {e}")
+    docling_parser = None
+
+def convert_pdf_markdown(path: str) -> str:
+    """
+    doclingを使用してPDFファイルから構造化されたMarkdownテキストを抽出します。
+
+    Args:
+        path (str): PDFファイルのパス。
+
+    Returns:
+        str: 抽出されたMarkdownテキスト。
+             ファイルが見つからない場合や処理に失敗した場合は空文字を返します。
+    """
+    if docling_parser is None:
+        print("doclingパーサーが初期化されていません。")
         return ""
-    reader = PdfReader(path)
-    pages = []
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            pages.append(text.strip())
-    return "\n\n".join(pages)
+
+    # 元のコードと同様に、ファイル存在チェックを行う
+    if not os.path.exists(path):
+        # 元のコードの print 文は %s の使い方が間違っていたため修正
+        print(f"PDF not found: {path}")
+        return ""
+        
+    try:
+        # doclingでPDFファイルをパース
+        doc = docling_parser.parse(path)
+        
+        # パース結果をMarkdown文字列に変換
+        # これにより、見出し(#), リスト(*), テーブル(|) などが復元されます
+        markdown_text = doc.to_markdown()
+        
+        return markdown_text.strip()
+        
+    except Exception as e:
+        # doclingのパース処理中にエラーが発生した場合
+        print(f"doclingでのPDF処理中にエラーが発生しました ({path}): {e}")
+        return ""
+
+def split_markdown_to_list(in_file_path: str, indent_num: int):
+    """
+    Markdownファイルを指定された見出しレベルで分割し、個別のテキストファイルとして保存する。
+
+    Args:
+        in_file_path (str): 分割対象のMarkdownファイルのパス。
+        output_folder_path (str): 生成したファイルを保存するフォルダのパス。
+        indent_num (int): 分割の基準となる見出しのレベル（`#`の数）。
+    """
+    # --- 引数のバリデーション ---
+    if not os.path.exists(in_file_path):
+        print(f"エラー: 入力ファイルが見つかりません: '{in_file_path}'")
+        sys.exit(1) # エラーでプログラムを終了
+    if indent_num < 1:
+        print(f"エラー: indent_numは1以上の整数で指定してください。")
+        sys.exit(1)
+
+    # --- 1. 入力ファイルの読み込み ---
+    try:
+        with open(in_file_path, 'r', encoding='utf-8') as f:
+            markdown_text = f.read()
+        print(f"入力ファイルを読み込みました: '{in_file_path}'")
+    except Exception as e:
+        print(f"エラー: ファイルの読み込み中に問題が発生しました。 {e}")
+        sys.exit(1)
+
+    # --- 3. 動的に分割パターンを生成 ---
+    split_pattern = f'\n(?={"#" * indent_num} )'
+    heading_marker_to_remove = "#" * indent_num
+    sections = re.split(split_pattern, markdown_text)
+    
+    # 最初の要素が見出しで始まらない場合（導入部など）の調整
+    if sections and not sections[0].strip().startswith('#'):
+        intro_text = sections.pop(0).strip()
+        if intro_text:
+            print(f"\n--- 導入部が見つかりました（この部分はファイル分割されません）---\n{intro_text}\n---------------------------------------------------------")
+
+    file_counter = 1
+    contents = []
+
+    # --- 4. 分割されたセクションごとにファイルを生成 ---
+    for section in sections:
+        section = section.strip()
+        if not section:
+            continue
+
+        lines = section.split('\n')
+        title_line = lines[0].replace(heading_marker_to_remove, '').strip()
+        content = '\n'.join(lines[1:]).strip()
+
+        sanitized_title = re.sub(r'[\s\\/:\*\?"<>\|・]', '_', title_line)
+        sanitized_title = (sanitized_title[:50] + '..') if len(sanitized_title) > 50 else sanitized_title
+
+        contents.append({sanitized_title: content})
+
+    # --- 5. 処理結果の表示 ---
+    print("\n処理が完了しました。")
+    if not contents:
+        print("指定された見出しレベルに一致するセクションが見つからなかったため、ファイルは生成されませんでした。")
+    else:
+        print(f"{len(contents)}個のファイルが生成されました:")
 
 # ---------------------------
 # Utility: Basic chunking for long text
 # ---------------------------
-def chunk_text(text: str, max_chars: int = 3000) -> List[str]:
+def chunk_text(text: str) -> List[str]:
+    """
+    LangChainのスプリッターを使い、日本語の文脈を考慮してテキストをチャンクに分割する。
+    """
     if not text:
         return []
-    chunks = []
-    start = 0
-    length = len(text)
-    while start < length:
-        end = min(length, start + max_chars)
-        # try to cut at newline for nicer chunks
-        if end < length:
-            nl = text.rfind("\n", start, end)
-            if nl > start:
-                end = nl
-        chunks.append(text[start:end].strip())
-        start = end
-    return chunks
+    
+    # .split_text() メソッドは、文字列のリストを返す
+    chunks = text_splitter.split_text(text)
+    
+    # strip() で前後の空白を除去（お好みで）
+    return [chunk.strip() for chunk in chunks if chunk.strip()]
 
 # ---------------------------
 # Utility: Jinja2 render prompt YAML-like dict
@@ -136,83 +238,6 @@ def get_ordered_characters(text: str, all_characters: List[Character]) -> List[C
     print(f"テキストから検出されたキャラクター（登場順）: {found_names}")
     
     return found_characters
-
-def split_markdown_to_files(in_file_path: str, output_folder_path: str, indent_num: int):
-    """
-    Markdownファイルを指定された見出しレベルで分割し、個別のテキストファイルとして保存する。
-
-    Args:
-        in_file_path (str): 分割対象のMarkdownファイルのパス。
-        output_folder_path (str): 生成したファイルを保存するフォルダのパス。
-        indent_num (int): 分割の基準となる見出しのレベル（`#`の数）。
-    """
-    # --- 引数のバリデーション ---
-    if not os.path.exists(in_file_path):
-        print(f"エラー: 入力ファイルが見つかりません: '{in_file_path}'")
-        sys.exit(1) # エラーでプログラムを終了
-    if indent_num < 1:
-        print(f"エラー: indent_numは1以上の整数で指定してください。")
-        sys.exit(1)
-
-    # --- 1. 入力ファイルの読み込み ---
-    try:
-        with open(in_file_path, 'r', encoding='utf-8') as f:
-            markdown_text = f.read()
-        print(f"入力ファイルを読み込みました: '{in_file_path}'")
-    except Exception as e:
-        print(f"エラー: ファイルの読み込み中に問題が発生しました。 {e}")
-        sys.exit(1)
-
-    # --- 2. 保存先フォルダの準備 ---
-    os.makedirs(output_folder_path, exist_ok=True)
-    print(f"保存先フォルダ: '{output_folder_path}'")
-
-    # --- 3. 動的に分割パターンを生成 ---
-    split_pattern = f'\n(?={"#" * indent_num} )'
-    heading_marker_to_remove = "#" * indent_num
-    sections = re.split(split_pattern, markdown_text)
-    
-    # 最初の要素が見出しで始まらない場合（導入部など）の調整
-    if sections and not sections[0].strip().startswith('#'):
-        intro_text = sections.pop(0).strip()
-        if intro_text:
-            print(f"\n--- 導入部が見つかりました（この部分はファイル分割されません）---\n{intro_text}\n---------------------------------------------------------")
-
-    file_counter = 1
-    created_files = []
-
-    # --- 4. 分割されたセクションごとにファイルを生成 ---
-    for section in sections:
-        section = section.strip()
-        if not section:
-            continue
-
-        lines = section.split('\n')
-        title_line = lines[0].replace(heading_marker_to_remove, '').strip()
-        content = '\n'.join(lines[1:]).strip()
-
-        sanitized_title = re.sub(r'[\s\\/:\*\?"<>\|・]', '_', title_line)
-        sanitized_title = (sanitized_title[:50] + '..') if len(sanitized_title) > 50 else sanitized_title
-
-        file_name = f"{file_counter:03d}_{sanitized_title}.txt"
-        file_path = os.path.join(output_folder_path, file_name)
-
-        try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            created_files.append(file_name)
-            file_counter += 1
-        except IOError as e:
-            print(f"エラー: ファイル '{file_name}' の書き込みに失敗しました。 {e}")
-
-    # --- 5. 処理結果の表示 ---
-    print("\n処理が完了しました。")
-    if not created_files:
-        print("指定された見出しレベルに一致するセクションが見つからなかったため、ファイルは生成されませんでした。")
-    else:
-        print(f"{len(created_files)}個のファイルが生成されました:")
-        for name in sorted(created_files):
-            print(f"- {name}")
 
 def create_dialog(script_text: str, speakers_dict: Dict[str, str], text_model_client: 'GeminiApiClient') -> str:
     """
