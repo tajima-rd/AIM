@@ -13,7 +13,7 @@ from typing import (
     Optional
 )
 from .custom_class import AbstractCustomClass
-from iso_objects.iso19115 import CI_Contact
+from .iso_objects.iso19115 import CI_Contact
 
 URI_TYPE = Literal[
     "local",     # ローカルファイルパス
