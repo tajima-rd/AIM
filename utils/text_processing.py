@@ -2,6 +2,7 @@ import re, os, sys, json
 import logging
 from pypdf import PdfReader
 from jinja2 import Template
+from docling import Docling
 from typing import List, Dict, Optional
 
 
