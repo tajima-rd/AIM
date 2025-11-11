@@ -10,43 +10,102 @@ from typing import (
     Optional
 )
 
-# -----------------------------------------------------------------
-# Section 1: 連絡先 (CI_Contact) とその構成要素
-# (前回の定義)
-# -----------------------------------------------------------------
 
-@dataclass
 class CI_OnlineResource:
     """オンラインリソース（Webサイトなど）の情報"""
-    linkage: str  # URL (例: "https://example.com")
-    protocol: Optional[str] = None # 例: "HTTPS"
-    name: Optional[str] = None
-    description: Optional[str] = None
+    def __init__(self,
+                 linkage: str,  # URL (例: "https://example.com")
+                 protocol: Optional[str] = None, # 例: "HTTPS"
+                 name: Optional[str] = None,
+                 description: Optional[str] = None
+                ):
+        self.linkage = linkage
+        self.protocol = protocol
+        self.name = name
+        self.description = description
 
-@dataclass
+    def __repr__(self) -> str:
+        parts = [f"linkage='{self.linkage}'"]
+        if self.protocol: parts.append(f"protocol='{self.protocol}'")
+        if self.name: parts.append(f"name='{self.name}'")
+        if self.description: parts.append(f"description='{self.description}'")
+        return f"CI_OnlineResource({', '.join(parts)})"
+
 class CI_Telephone:
     """電話番号"""
-    voice: List[str] = field(default_factory=list)
-    facsimile: List[str] = field(default_factory=list)
+    def __init__(self,
+                 voice: List[str] = None,
+                 facsimile: List[str] = None
+                ):
+        # default_factory=list の動作を再現 (ミュータブルなデフォルト引数を避ける)
+        self.voice = voice if voice is not None else []
+        self.facsimile = facsimile if facsimile is not None else []
 
-@dataclass
+    def __repr__(self) -> str:
+        parts = []
+        if self.voice: parts.append(f"voice={self.voice}")
+        if self.facsimile: parts.append(f"facsimile={self.facsimile}")
+        return f"CI_Telephone({', '.join(parts)})"
+
 class CI_Address:
     """住所"""
-    deliveryPoint: List[str] = field(default_factory=list) # 番地
-    city: Optional[str] = None
-    administrativeArea: Optional[str] = None # 都道府県
-    postalCode: Optional[str] = None
-    country: Optional[str] = None
-    electronicMailAddress: List[str] = field(default_factory=list) # Eメール
+    def __init__(self,
+                 deliveryPoint: List[str] = None, # 番地
+                 city: Optional[str] = None,
+                 administrativeArea: Optional[str] = None, # 都道府県
+                 postalCode: Optional[str] = None,
+                 country: Optional[str] = None,
+                 electronicMailAddress: List[str] = None # Eメール
+                ):
+        # default_factory=list の動作を再現
+        self.deliveryPoint = deliveryPoint if deliveryPoint is not None else []
+        self.city = city
+        self.administrativeArea = administrativeArea
+        self.postalCode = postalCode
+        self.country = country
+        self.electronicMailAddress = electronicMailAddress if electronicMailAddress is not None else []
 
-@dataclass
+    def __repr__(self) -> str:
+        parts = []
+        if self.deliveryPoint: parts.append(f"deliveryPoint={self.deliveryPoint}")
+        if self.city: parts.append(f"city='{self.city}'")
+        if self.administrativeArea: parts.append(f"administrativeArea='{self.administrativeArea}'")
+        if self.postalCode: parts.append(f"postalCode='{self.postalCode}'")
+        if self.country: parts.append(f"country='{self.country}'")
+        if self.electronicMailAddress: parts.append(f"electronicMailAddress={self.electronicMailAddress}")
+        return f"CI_Address({', '.join(parts)})"
 class CI_Contact:
-    """連絡先情報 (CI_Contact)"""
-    phone: Optional[CI_Telephone] = None
-    address: Optional[CI_Address] = None
-    onlineResource: Optional[CI_OnlineResource] = None
-    hoursOfService: Optional[str] = None
-    contactInstructions: Optional[str] = None
+    """
+    連絡先情報 (CI_Contact) - ISO標準構造 (通常のクラス)
+    """
+    
+    def __init__(self, 
+                 phone: Optional[CI_Telephone] = None,
+                 address: Optional[CI_Address] = None,
+                 onlineResource: Optional[CI_OnlineResource] = None,
+                 hoursOfService: Optional[str] = None,
+                 contactInstructions: Optional[str] = None
+                ):
+        
+        # ISO標準フィールドをそのまま初期化
+        self.phone = phone
+        self.address = address
+        self.onlineResource = onlineResource
+        self.hoursOfService = hoursOfService
+        self.contactInstructions = contactInstructions
+                
+    def __repr__(self) -> str:
+        """
+        デバッグ用の簡易的な __repr__
+        """
+        parts = []
+        if self.phone: parts.append(f"phone={self.phone}")
+        if self.address: parts.append(f"address={self.address}")
+        if self.onlineResource: parts.append(f"onlineResource={self.onlineResource}")
+        if self.hoursOfService: parts.append(f"hoursOfService='{self.hoursOfService}'")
+        if self.contactInstructions: parts.append(f"contactInstructions='{self.contactInstructions}'")
+        
+        return f"CI_Contact({', '.join(parts)})"
 
 # -----------------------------------------------------------------
 # Section 2: 責任者 (CI_ResponsibleParty) と役割
