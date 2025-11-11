@@ -15,15 +15,20 @@ from typing import (
 from .custom_class import AbstractCustomClass
 from .iso_objects.iso19115 import CI_Contact
 
-URI_TYPE = Literal[
-    "local",     # ローカルファイルパス
-    "http",      # HTTP
-    "https",     # HTTPS
-    "s3",        # AWS S3
-    "gcs",       # Google Cloud Storage
-    "ftp",       # FTP
-    "unknown"    # その他・不明
-]
+
+
+# Literal を Enum に変更
+class URI_TYPE(str, Enum):
+    LOCAL = "local"
+    HTTP = "http"
+    HTTPS = "https"
+    S3 = "s3"
+    GCS = "gcs"
+    FTP = "ftp"
+    UNKNOWN = "unknown"
+    
+    def __str__(self):
+        return self.value
 
 class Project:
     def __init__(self, 
