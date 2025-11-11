@@ -2,7 +2,7 @@ import re, os, sys, json
 import logging
 from pypdf import PdfReader
 from jinja2 import Template
-from docling import DocParser
+from docling.document_converter import DocumentConverter
 from typing import List, Dict, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -34,11 +34,11 @@ text_splitter = RecursiveCharacterTextSplitter(
 # Utility: PDF text extraction
 # ---------------------------
 try:
-    # デフォルト設定でパーサーを初期化
-    docling_parser = DocParser()
+    # デフォルト設定でコンバーターを初期化
+    docling_converter = DocumentConverter()
 except Exception as e:
-    print(f"doclingパーサーの初期化に失敗しました: {e}")
-    docling_parser = None
+    print(f"doclingコンバーターの初期化に失敗しました: {e}")
+    docling_converter = None
 
 def convert_pdf_markdown(path: str) -> str:
     """
@@ -51,8 +51,8 @@ def convert_pdf_markdown(path: str) -> str:
         str: 抽出されたMarkdownテキスト。
              ファイルが見つからない場合や処理に失敗した場合は空文字を返します。
     """
-    if docling_parser is None:
-        print("doclingパーサーが初期化されていません。")
+    if docling_converter is None:
+        print("doclingコンバーターが初期化されていません。")
         return ""
 
     if not os.path.exists(path):
@@ -60,11 +60,11 @@ def convert_pdf_markdown(path: str) -> str:
         return ""
         
     try:
-        # doclingでPDFファイルをパース
-        doc = docling_parser.parse(path)
+        # doclingでPDFファイルを変換
+        result = docling_converter.convert(path)
         
-        # パース結果をMarkdown文字列に変換
-        markdown_text = doc.to_markdown()
+        # 変換結果をMarkdown文字列に変換
+        markdown_text = result.document.export_to_markdown()
         
         return markdown_text.strip()
         
