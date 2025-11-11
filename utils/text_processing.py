@@ -2,7 +2,7 @@ import re, os, sys, json
 import logging
 from pypdf import PdfReader
 from jinja2 import Template
-from docling import Docling
+from docling import DocParser
 from typing import List, Dict, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -35,7 +35,7 @@ text_splitter = RecursiveCharacterTextSplitter(
 # ---------------------------
 try:
     # デフォルト設定でパーサーを初期化
-    docling_parser = Docling()
+    docling_parser = DocParser()
 except Exception as e:
     print(f"doclingパーサーの初期化に失敗しました: {e}")
     docling_parser = None
@@ -55,9 +55,7 @@ def convert_pdf_markdown(path: str) -> str:
         print("doclingパーサーが初期化されていません。")
         return ""
 
-    # 元のコードと同様に、ファイル存在チェックを行う
     if not os.path.exists(path):
-        # 元のコードの print 文は %s の使い方が間違っていたため修正
         print(f"PDF not found: {path}")
         return ""
         
@@ -66,13 +64,11 @@ def convert_pdf_markdown(path: str) -> str:
         doc = docling_parser.parse(path)
         
         # パース結果をMarkdown文字列に変換
-        # これにより、見出し(#), リスト(*), テーブル(|) などが復元されます
         markdown_text = doc.to_markdown()
         
         return markdown_text.strip()
         
     except Exception as e:
-        # doclingのパース処理中にエラーが発生した場合
         print(f"doclingでのPDF処理中にエラーが発生しました ({path}): {e}")
         return ""
 
