@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # 循環参照を避けるため、型チェック時のみインポート
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from AIM.core.rag.api_client import GeminiApiClient
+    from ..core.genai.api_client import GeminiApiClient
 
 from ..core.genai.generators import TextGenerator
 from ..core.config import WriteConfig, Character
