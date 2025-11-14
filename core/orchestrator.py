@@ -8,7 +8,7 @@ try:
         SpeechConfig, 
         Character
     )
-    from .generators import SpeechGenerator
+    from .genai.generators import SpeechGenerator
     from .rag.api_client import ApiKeyManager
     from utils.ssml_utils import convert_dialog_to_ssml
     from utils.text_processing import (

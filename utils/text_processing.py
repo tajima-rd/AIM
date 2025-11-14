@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from AIM.core.rag.api_client import GeminiApiClient
 
-from ..core.generators import TextGenerator
+from ..core.genai.generators import TextGenerator
 from ..core.config import WriteConfig, Character
 
 import re

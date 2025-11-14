@@ -11,13 +11,13 @@ from typing import (
     Any, 
     Optional
 )
-from .rag.api_client import ApiClient
-from .config import (
+from .api_client import ApiClient
+from ..config import (
     Character,
     WriteConfig,
     SpeechConfig
 )
-from ..utils.audio_processor import AudioProcessor
+from ...utils.audio_processor import AudioProcessor
 
 
 # ==============================================================================
