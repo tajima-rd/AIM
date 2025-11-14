@@ -92,27 +92,75 @@ class MCPClientManager:
             print("サーバーは起動していません。")
 
     def configure(self, configs: List[Dict]) -> bool:
+        """
+        MCPサーバーにジェネレーターの設定情報をPOSTする。
+        (server.pyにあった動作ロジックをこちらに移植)
+        """
+        
+        # ★★★ ここを server.py のロジックで書き換える ★★★
+        
+        # 1. 引数のマッピング
+        # このメソッドが受け取る `configs` を `configs_data` として扱う
+        configs_data = configs 
+        # `server_url` は `self.server_url` を使う
         configure_endpoint = f"{self.server_url}/configure"
-        request_data = {"configs": configs}
+        
+        if not configs_data:
+            print("PROJECTから有効なジェネレーター設定を構築できませんでした。")
+            return False
+
+        request_body = {"configs": configs_data}
         
         print(f">>> MCPサーバー ({configure_endpoint}) に設定を送信します...")
-        
+        print(f"/configure へ設定をPOSTします: {request_body}") # server.py側のprintも移植
+
         try:
+            # 2. server.py の try...except ブロックを移植
             response = requests.post(
                 configure_endpoint,
-                data=json.dumps(request_data),
+                data=json.dumps(request_body), # server.py は json=request_body を使っていた
                 headers={"Content-Type": "application/json"},
                 timeout=10
             )
             response.raise_for_status()
-            print("サーバーの設定が完了しました。")
-            print(f"サーバーからの応答: {response.json()}")
+            
+            response_data = response.json() # server.py側の処理
+            print(f"サーバーの設定が完了しました。")
+            print(f"MCPサーバー設定成功。利用可能なモデル: {response_data.get('configured_generators')}")
             return True
+
+        except requests.exceptions.ConnectionError:
+            print(f"/configure 呼び出し失敗: サーバー ({self.server_url}) に接続できません。")
+            return False
         except Exception as e:
-            print(f"サーバーの設定中にエラーが発生しました: {e}")
-            if 'response' in locals():
+            # server.py のエラーハンドリングを移植
+            print(f"/configure 呼び出し中にエラー: {e}")
+            if 'response' in locals() and hasattr(response, 'text'):
                 print(f"サーバーからのエラーメッセージ: {response.text}")
             return False
+
+    # def configure(self, configs: List[Dict]) -> bool:
+    #     configure_endpoint = f"{self.server_url}/configure"
+    #     request_data = {"configs": configs}
+        
+    #     print(f">>> MCPサーバー ({configure_endpoint}) に設定を送信します...")
+        
+    #     try:
+    #         response = requests.post(
+    #             configure_endpoint,
+    #             data=json.dumps(request_data),
+    #             headers={"Content-Type": "application/json"},
+    #             timeout=10
+    #         )
+    #         response.raise_for_status()
+    #         print("サーバーの設定が完了しました。")
+    #         print(f"サーバーからの応答: {response.json()}")
+    #         return True
+    #     except Exception as e:
+    #         print(f"サーバーの設定中にエラーが発生しました: {e}")
+    #         if 'response' in locals():
+    #             print(f"サーバーからのエラーメッセージ: {response.text}")
+    #         return False
 
     def generate_text(self, model: str, messages: List[Dict[str, str]]) -> Optional[str]:
         generate_endpoint = f"{self.server_url}/generate_text" # エンドポイント名を確認
