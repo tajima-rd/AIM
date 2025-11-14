@@ -5,8 +5,8 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path  # ★★★ この行を確認・追加 ★★★
 
 # サーバー側で必要なクラスをインポート
-from api_client import GeminiApiClient, LlamaCppApiClient
-from generators import GeminiTextGenerator, LlamaCppTextGenerator, GeminiSpeechGenerator
+from client import GeminiApiClient, LlamaCppApiClient
+from ..genai.generators import GeminiTextGenerator, LlamaCppTextGenerator, GeminiSpeechGenerator
 from ..config import WriteConfig, SpeechConfig
 from ...models.drama import Character, Voice
 
