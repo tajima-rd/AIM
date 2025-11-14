@@ -21,7 +21,7 @@ class MCPClientManager:
         """
         [内部メソッド] uvicornサーバーを起動するためのターゲット関数。
         """
-        uvicorn.run("lib.aim.mcp.server:app", host=self.host, port=self.port)
+        uvicorn.run("lib.aim.core.mcp.server:app", host=self.host, port=self.port)
 
     def start_server(self, wait: bool = True) -> bool:
         """
