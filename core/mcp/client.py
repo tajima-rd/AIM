@@ -6,12 +6,9 @@ import multiprocessing
 from enum import Enum
 from typing import List, Dict, Optional, Any
 from .server import app as server_app
+from ...models.drama import Character
 
 class MCPClientManager:
-    """
-    MCPサーバーの起動・シャットダウンを管理し、
-    クライアントとしてサーバーと通信する機能を提供するクラス。
-    """
     def __init__(self, host: str = "127.0.0.1", port: int = 8000):
         self.host = host
         self.port = port
@@ -19,21 +16,9 @@ class MCPClientManager:
         self._server_process: Optional[multiprocessing.Process] = None
 
     def _run_server_process(self):
-        """
-        [内部メソッド] uvicornサーバーを起動するためのターゲット関数。
-        """
         uvicorn.run(server_app, host=self.host, port=self.port)
 
     def start_server(self, wait: bool = True) -> bool:
-        """
-        MCPサーバーをバックグラウンドプロセスとして起動する。
-
-        Args:
-            wait (bool): Trueの場合、サーバーが完全に起動するまで待機する。
-
-        Returns:
-            bool: サーバーの起動が成功したか（または既に起動しているか）。
-        """
         if self._server_process and self._server_process.is_alive():
             print("サーバーは既に起動しています。")
             return True
@@ -47,9 +32,6 @@ class MCPClientManager:
         return True
 
     def wait_for_server_ready(self, retries: int = 10, delay: int = 1) -> bool:
-        """
-        MCPサーバーが起動し、リクエストを受け付ける準備ができるまで待機する。
-        """
         print("サーバーの起動を待っています...")
         health_endpoint = f"{self.server_url}/health"
         for i in range(retries):
@@ -65,9 +47,6 @@ class MCPClientManager:
         return False
     
     def generate_speech(self, model: str, ssml_text: str, characters: List['Character'], output_filename: str) -> Optional[str]:
-        """
-        MCPサーバーに音声生成リクエストを送信する。
-        """
         speech_endpoint = f"{self.server_url}/generate_speech"
         
         # Characterオブジェクトを辞書に変換
@@ -103,9 +82,6 @@ class MCPClientManager:
             return None
 
     def shutdown_server(self):
-        """
-        起動中のMCPサーバープロセスをシャットダウンする。
-        """
         if self._server_process and self._server_process.is_alive():
             print("\nMCPサーバーをシャットダウンします。")
             self._server_process.terminate()
@@ -116,9 +92,6 @@ class MCPClientManager:
             print("サーバーは起動していません。")
 
     def configure(self, configs: List[Dict]) -> bool:
-        """
-        MCPサーバーにジェネレーターの設定情報をPOSTする。
-        """
         configure_endpoint = f"{self.server_url}/configure"
         request_data = {"configs": configs}
         
@@ -142,9 +115,6 @@ class MCPClientManager:
             return False
 
     def generate_text(self, model: str, messages: List[Dict[str, str]]) -> Optional[str]:
-        """
-        MCPサーバーにテキスト生成リクエストを送信する。
-        """
         generate_endpoint = f"{self.server_url}/generate_text" # エンドポイント名を確認
         request_data = {"model": model, "messages": messages}
         
@@ -175,9 +145,6 @@ class MCPClientManager:
         return None
 
     def generate_speech(self, model: str, ssml_text: str, characters: List[Any], output_filename: str) -> Optional[str]:
-        """
-        MCPサーバーに音声生成リクエストを送信する。
-        """
         speech_endpoint = f"{self.server_url}/generate_speech"
         
         # Characterオブジェクトのリストを、JSONで送信可能な辞書のリストに変換

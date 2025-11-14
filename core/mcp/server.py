@@ -133,30 +133,3 @@ def generate_speech(request: SpeechGenerateRequest):
 @app.get("/health")
 def health_check():
     return {"status": "ok", "available_models": list(GENERATORS.keys())}
-
-def configure(configs_data, server_url: str = "http://127.0.0.1:8000"):
-    try:
-        
-        if not configs_data:
-            print("PROJECTから有効なジェネレーター設定を構築できませんでした。")
-            return False
-
-        request_body = {"configs": configs_data}
-        configure_url = f"{server_url}/configure"
-        
-        print(f"/configure へ設定をPOSTします: {request_body}")
-
-        # 2. /configure エンドポイントに POST
-        response = requests.post(configure_url, json=request_body, timeout=10)
-        response.raise_for_status() # エラーがあれば例外発生
-        
-        response_data = response.json()
-        print(f"MCPサーバー設定成功。利用可能なモデル: {response_data.get('configured_generators')}")
-        return True
-
-    except requests.exceptions.ConnectionError:
-        print(f"/configure 呼び出し失敗: サーバー ({server_url}) に接続できません。")
-        return False
-    except Exception as e:
-        print(f"/configure 呼び出し中にエラー: {e}", exc_info=True)
-        return False
