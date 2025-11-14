@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # 循環参照を避けるため、型チェック時のみインポート
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from core.api_client import GeminiApiClient
+    from AIM.core.rag.api_client import GeminiApiClient
 
 from ..core.generators import TextGenerator
 from ..core.config import WriteConfig, Character
@@ -168,7 +168,6 @@ def safe_parse_json(s: str) -> Optional[Dict]:
     except Exception as e:
         print("JSON parse failed: %s", e)
     return None
-
 
 def get_ordered_characters(text: str, all_characters: List[Character]) -> List[Character]:
     """

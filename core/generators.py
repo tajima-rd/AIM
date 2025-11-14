@@ -11,7 +11,7 @@ from typing import (
     Any, 
     Optional
 )
-from .api_client import ApiClient
+from .rag.api_client import ApiClient
 from .config import (
     Character,
     WriteConfig,
