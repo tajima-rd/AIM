@@ -24,3 +24,5 @@ def render_yaml_prompt(yaml_prompt: Dict, variables: Dict[str, str]) -> tuple[st
     system_text = Template(system_template).render(**variables)
     task_text = Template(task_template).render(**variables)
     return system_text, task_text
+
+

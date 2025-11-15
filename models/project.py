@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from datetime import datetime
@@ -49,4 +50,35 @@ class Project:
         self.root_uri = root_uri
         self.root_uri_type = root_uri_type
         self.attributes = attributes if attributes is not None else []
+    
+    @classmethod
+    def load_from_json(cls, config_path: Path) -> "Project":
+        if not config_path.exists():
+            print(f"プロジェクト設定ファイルが見つかりません: {config_path}")
+            raise FileNotFoundError(f"Project config file not found: {config_path}")
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            if not config_data or not isinstance(config_data, list) or "Project" not in config_data[0]:
+                raise ValueError("JSONの形式が不正です。'Project' キーが見つかりません。")
+                
+            project_data_dict = config_data[0]["Project"]
+                        
+            # contact 辞書を CI_Contact インスタンスに変換
+            contact_dict = project_data_dict.get('contact')
+            if contact_dict and isinstance(contact_dict, dict):
+                project_data_dict['contact'] = CI_Contact.load_from_dict(contact_dict)
 
+            return cls(**project_data_dict)
+            
+        except json.JSONDecodeError as e:
+            print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
+            raise ValueError(f"Failed to parse config file: {e}") from e
+        except (IndexError, KeyError, TypeError) as e:
+            print(f"JSONデータの構造が不正です: {e}")
+            raise ValueError(f"Invalid JSON structure: {e}") from e
+    
+    def __str__(self):
+        return f"<Project: {self.project_name}>"

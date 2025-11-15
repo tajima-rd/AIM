@@ -23,6 +23,12 @@ class CI_OnlineResource:
         self.protocol = protocol
         self.name = name
         self.description = description
+    
+    @classmethod
+    def load_from_dict(cls, data: Dict[str, Any]) -> "CI_Address":
+        if not data:
+            return None
+        return cls(**data)
 
     def __repr__(self) -> str:
         parts = [f"linkage='{self.linkage}'"]
@@ -32,7 +38,6 @@ class CI_OnlineResource:
         return f"CI_OnlineResource({', '.join(parts)})"
 
 class CI_Telephone:
-    """電話番号"""
     def __init__(self,
                  voice: List[str] = None,
                  facsimile: List[str] = None
@@ -41,6 +46,12 @@ class CI_Telephone:
         self.voice = voice if voice is not None else []
         self.facsimile = facsimile if facsimile is not None else []
 
+    @classmethod
+    def load_from_dict(cls, data: Dict[str, Any]) -> "CI_Address":
+        if not data:
+            return None
+        return cls(**data)
+    
     def __repr__(self) -> str:
         parts = []
         if self.voice: parts.append(f"voice={self.voice}")
@@ -65,6 +76,12 @@ class CI_Address:
         self.country = country
         self.electronicMailAddress = electronicMailAddress if electronicMailAddress is not None else []
 
+    @classmethod
+    def load_from_dict(cls, data: Dict[str, Any]) -> "CI_Address":
+        if not data:
+            return None
+        return cls(**data)
+    
     def __repr__(self) -> str:
         parts = []
         if self.deliveryPoint: parts.append(f"deliveryPoint={self.deliveryPoint}")
@@ -94,6 +111,53 @@ class CI_Contact:
         self.onlineResource = onlineResource
         self.hoursOfService = hoursOfService
         self.contactInstructions = contactInstructions
+    
+    @classmethod
+    def load_from_dict(cls, data: Dict[str, Any]) -> "CI_Contact":
+        if not data:
+            return None
+
+        # ネストされた辞書データを取得
+        phone_data = data.get('phone')
+        address_data = data.get('address')
+        online_resource_data = data.get('onlineResource')
+        phone_instance = None
+        if phone_data:
+            try:
+                phone_instance = CI_Telephone.load_from_dict(phone_data)
+            except (NameError, AttributeError):
+                try:
+                    phone_instance = CI_Telephone(**phone_data)
+                except NameError:
+                    phone_instance = phone_data # フォールバック
+
+        address_instance = None
+        if address_data:
+            try:
+                address_instance = CI_Address.load_from_dict(address_data)
+            except (NameError, AttributeError):
+                try:
+                    address_instance = CI_Address(**address_data)
+                except NameError:
+                    address_instance = address_data # フォールバック
+
+        online_resource_instance = None
+        if online_resource_data:
+            try:
+                online_resource_instance = CI_OnlineResource.load_from_dict(online_resource_data)
+            except (NameError, AttributeError):
+                try:
+                    online_resource_instance = CI_OnlineResource(**online_resource_data)
+                except NameError:
+                    online_resource_instance = online_resource_data # フォールバック
+
+        return cls(
+            phone=phone_instance,
+            address=address_instance,
+            onlineResource=online_resource_instance,
+            hoursOfService=data.get('hoursOfService'),
+            contactInstructions=data.get('contactInstructions')
+        )
                 
     def __repr__(self) -> str:
         """
