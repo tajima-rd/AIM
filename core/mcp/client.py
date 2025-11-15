@@ -45,41 +45,6 @@ class MCPClientManager:
         
         print("サーバーの起動に失敗しました。")
         return False
-    
-    def generate_speech(self, model: str, ssml_text: str, characters: List['Character'], output_filename: str) -> Optional[str]:
-        speech_endpoint = f"{self.server_url}/generate_speech"
-        
-        # Characterオブジェクトを辞書に変換
-        char_list_dict = [char.__dict__ for char in characters]
-        # Enumオブジェクトは単純に変換できないため、voice.nameなどを渡す必要がある
-        for char_dict in char_list_dict:
-            if 'voice' in char_dict and isinstance(char_dict['voice'], Enum):
-                char_dict['voice'] = char_dict['voice'].name
-
-        request_data = {
-            "model": model,
-            "ssml_text": ssml_text,
-            "characters": char_list_dict,
-            "output_filename": output_filename
-        }
-        
-        print(f">>> MCPサーバーに '{model}' モデルで音声生成リクエストを送信します...")
-        
-        try:
-            response = requests.post(
-                speech_endpoint,
-                data=json.dumps(request_data, default=str), # default=strでEnumなどを安全に変換
-                headers={"Content-Type": "application/json"},
-                timeout=180 # 音声生成は時間がかかる場合がある
-            )
-            response.raise_for_status()
-            response_data = response.json()
-            return response_data.get("file_path")
-        except Exception as e:
-            print(f"音声生成リクエスト中にエラーが発生しました: {e}")
-            if 'response' in locals():
-                print(f"サーバーからのエラーメッセージ: {response.text}")
-            return None
 
     def shutdown_server(self):
         if self._server_process and self._server_process.is_alive():
@@ -92,17 +57,8 @@ class MCPClientManager:
             print("サーバーは起動していません。")
 
     def configure(self, configs: List[Dict]) -> bool:
-        """
-        MCPサーバーにジェネレーターの設定情報をPOSTする。
-        (server.pyにあった動作ロジックをこちらに移植)
-        """
-        
-        # ★★★ ここを server.py のロジックで書き換える ★★★
-        
         # 1. 引数のマッピング
-        # このメソッドが受け取る `configs` を `configs_data` として扱う
         configs_data = configs 
-        # `server_url` は `self.server_url` を使う
         configure_endpoint = f"{self.server_url}/configure"
         
         if not configs_data:
@@ -138,29 +94,6 @@ class MCPClientManager:
             if 'response' in locals() and hasattr(response, 'text'):
                 print(f"サーバーからのエラーメッセージ: {response.text}")
             return False
-
-    # def configure(self, configs: List[Dict]) -> bool:
-    #     configure_endpoint = f"{self.server_url}/configure"
-    #     request_data = {"configs": configs}
-        
-    #     print(f">>> MCPサーバー ({configure_endpoint}) に設定を送信します...")
-        
-    #     try:
-    #         response = requests.post(
-    #             configure_endpoint,
-    #             data=json.dumps(request_data),
-    #             headers={"Content-Type": "application/json"},
-    #             timeout=10
-    #         )
-    #         response.raise_for_status()
-    #         print("サーバーの設定が完了しました。")
-    #         print(f"サーバーからの応答: {response.json()}")
-    #         return True
-    #     except Exception as e:
-    #         print(f"サーバーの設定中にエラーが発生しました: {e}")
-    #         if 'response' in locals():
-    #             print(f"サーバーからのエラーメッセージ: {response.text}")
-    #         return False
 
     def generate_text(self, model: str, messages: List[Dict[str, str]]) -> Optional[str]:
         generate_endpoint = f"{self.server_url}/generate_text" # エンドポイント名を確認

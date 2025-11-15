@@ -1,8 +1,10 @@
-import os, requests
+import os, requests, json
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from pathlib import Path  # ★★★ この行を確認・追加 ★★★
+from pathlib import Path 
+
+from pydantic import BaseModel, TypeAdapter
 
 # サーバー側で必要なクラスをインポート
 from ..genai.api_client import GeminiApiClient, LlamaCppApiClient
@@ -12,12 +14,52 @@ from ...models.drama import Character, Voice
 
 # --- Pydanticモデル ---
 
-class GeneratorConfig(BaseModel):
-    generator_name: str  # "gemini_text", "gemini_speech", "llamacpp_text" など
-    client_type: str     # "gemini", "llamacpp"
+class GeneratorConfig(BaseModel):    
+    generator_name: str
+    client_type: str
     model_name: str
     api_key: str
-    api_url: Optional[str] = None # Llama.cpp用
+    api_url: Optional[str] = None
+
+    @classmethod
+    def load_from_json(cls, config_path: Path) -> List["GeneratorConfig"]:
+        if not config_path.exists():
+            print(f"設定ファイルが見つかりません: {config_path}")
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data_list = json.load(f)
+            
+            # "MCP_Clients" セクションを探す
+            clients_data_list = None
+            if not isinstance(config_data_list, list):
+                 raise ValueError("JSONのルートがリストではありません。")
+
+            for item in config_data_list:
+                if isinstance(item, dict) and "GeneratorConfig" in item:
+                    clients_data_list = item["GeneratorConfig"]
+                    break
+            
+            if clients_data_list is None:
+                raise ValueError("JSON内に 'GeneratorConfig' キーが見つかりません。")
+
+            # Pydantic を使って辞書のリストを GeneratorConfig のリストにパースする
+            try:
+                # Pydantic v2 (推奨)
+                adapter = TypeAdapter(List[cls])
+                return adapter.validate_python(clients_data_list)
+            except ImportError:
+                # Pydantic v1 (フォールバック)
+                return None
+        
+        except json.JSONDecodeError as e:
+            print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
+            raise ValueError(f"Failed to parse config file: {e}") from e
+        except Exception as e:
+            # (Pydantic のバリデーションエラーなどもキャッチ)
+            print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
+            raise ValueError(f"Failed to parse or validate config data: {e}") from e
 
 class ConfigureRequest(BaseModel):
     configs: List[GeneratorConfig]
