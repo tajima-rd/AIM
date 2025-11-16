@@ -10,8 +10,6 @@ from typing import List, Dict, Optional, Any
 from .server import app as server_app
 from ...models.drama import Character
 
-
-
 class MCPClientManager:
     def __init__(self, host: str = "127.0.0.1", port: int = 8000):
         self.host = host
@@ -124,45 +122,6 @@ class MCPClientManager:
             # その他の予期せぬエラー (JSON デコード失敗など)
             print(f"/configure 呼び出し中に予期せぬエラー: {e}")
             return False
-    
-    # def configure(self, configs: List[Dict]) -> bool:
-    #     # 1. 引数のマッピング
-    #     configs_data = configs 
-    #     configure_endpoint = f"{self.server_url}/configure"
-        
-    #     if not configs_data:
-    #         print("PROJECTから有効なジェネレーター設定を構築できませんでした。")
-    #         return False
-
-    #     request_body = {"configs": configs_data}
-        
-    #     print(f">>> MCPサーバー ({configure_endpoint}) に設定を送信します...")
-    #     print(f"/configure へ設定をPOSTします: {request_body}") # server.py側のprintも移植
-
-    #     try:
-    #         # 2. server.py の try...except ブロックを移植
-    #         response = requests.post(
-    #             configure_endpoint,
-    #             data=json.dumps(request_body), # server.py は json=request_body を使っていた
-    #             headers={"Content-Type": "application/json"},
-    #             timeout=10
-    #         )
-    #         response.raise_for_status()
-            
-    #         response_data = response.json() # server.py側の処理
-    #         print(f"サーバーの設定が完了しました。")
-    #         print(f"MCPサーバー設定成功。利用可能なモデル: {response_data.get('configured_generators')}")
-    #         return True
-
-    #     except requests.exceptions.ConnectionError:
-    #         print(f"/configure 呼び出し失敗: サーバー ({self.server_url}) に接続できません。")
-    #         return False
-    #     except Exception as e:
-    #         # server.py のエラーハンドリングを移植
-    #         print(f"/configure 呼び出し中にエラー: {e}")
-    #         if 'response' in locals() and hasattr(response, 'text'):
-    #             print(f"サーバーからのエラーメッセージ: {response.text}")
-    #         return False
 
     def generate_text(self, model: str, messages: List[Dict[str, str]]) -> Optional[str]:
         generate_endpoint = f"{self.server_url}/generate_text" # エンドポイント名を確認

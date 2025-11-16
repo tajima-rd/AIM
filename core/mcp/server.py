@@ -12,8 +12,6 @@ from ..genai.generators import GeminiTextGenerator, LlamaCppTextGenerator, Gemin
 from ..config import WriteConfig, SpeechConfig
 from ...models.drama import Character, Voice
 
-# --- Pydanticモデル ---
-
 class GeneratorConfig(BaseModel):    
     generator_name: str
     client_type: str

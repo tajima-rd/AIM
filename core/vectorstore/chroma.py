@@ -2,10 +2,12 @@
 ChromaDBとの通信を担当するリポジトリ層
 (元の chroma_client.py をリファクタリング)
 """
-import logging
+import logging, json
 from pathlib import Path
 from typing import List, Dict, Any
 import sys
+
+from pydantic import BaseModel, TypeAdapter
 
 try:
     import chromadb
@@ -22,7 +24,7 @@ DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 logger = logging.getLogger(__name__)
 
 
-class ChromaRepository:
+class ChromaRepository(BaseModel):
     """
     ChromaClient から ChromaRepository にクラス名を変更。
     責務はベクトルとIDベースのメタデータの物理的ストア。
@@ -48,6 +50,46 @@ class ChromaRepository:
             embedding_function=self.ef
         )
         logger.info(f"Collection '{collection_name}' loaded/created.")
+
+    @classmethod
+    def load_from_json(cls, config_path: Path) -> List["ChromaRepository"]:
+        if not config_path.exists():
+            print(f"設定ファイルが見つかりません: {config_path}")
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data_list = json.load(f)
+            
+            # "MCP_Clients" セクションを探す
+            clients_data_list = None
+            if not isinstance(config_data_list, list):
+                 raise ValueError("JSONのルートがリストではありません。")
+
+            for item in config_data_list:
+                if isinstance(item, dict) and "VectorStores" in item:
+                    clients_data_list = item["VectorStores"]
+                    break
+            
+            if clients_data_list is None:
+                raise ValueError("JSON内に 'VectorStores' キーが見つかりません。")
+
+            # Pydantic を使って辞書のリストを VectorStores のリストにパースする
+            try:
+                # Pydantic v2 (推奨)
+                adapter = TypeAdapter(List[cls])
+                return adapter.validate_python(clients_data_list)
+            except ImportError:
+                # Pydantic v1 (フォールバック)
+                return None
+        
+        except json.JSONDecodeError as e:
+            print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
+            raise ValueError(f"Failed to parse config file: {e}") from e
+        except Exception as e:
+            # (Pydantic のバリデーションエラーなどもキャッチ)
+            print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
+            raise ValueError(f"Failed to parse or validate config data: {e}") from e
 
     def _create_chroma_client(self) -> chromadb.Client:    
         """
