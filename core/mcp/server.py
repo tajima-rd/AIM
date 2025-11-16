@@ -1,6 +1,5 @@
 import os, requests, json
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pathlib import Path 
 

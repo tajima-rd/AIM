@@ -23,33 +23,10 @@ except ImportError:
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 logger = logging.getLogger(__name__)
 
-
-class ChromaRepository(BaseModel):
+class RepositoryConfig(BaseModel):    
     collection_name: str
     persist_directory: Path
-    embedding_model: str = DEFAULT_EMBEDDING_MODEL,
-
-    def __init__(
-        self,
-        collection_name: str,
-        persist_directory: Path,
-        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
-    ):
-        self.collection_name = collection_name
-        self.embedding_model_name = embedding_model
-        self.persist_directory = persist_directory
-        
-        self.client: chromadb.Client = self._create_chroma_client()
-        
-        self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=self.embedding_model_name
-        )
-        
-        self.collection: Collection = self.client.get_or_create_collection(
-            name=self.collection_name, 
-            embedding_function=self.ef
-        )
-        logger.info(f"Collection '{collection_name}' loaded/created.")
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL
 
     @classmethod
     def load_from_json(cls, config_path: Path) -> List["ChromaRepository"]:
@@ -90,6 +67,33 @@ class ChromaRepository(BaseModel):
             # (Pydantic のバリデーションエラーなどもキャッチ)
             print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
             raise ValueError(f"Failed to parse or validate config data: {e}") from e
+
+class ChromaRepository(BaseModel):
+    collection_name: str
+    persist_directory: Path
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL
+
+    def __init__(
+        self,
+        collection_name: str,
+        persist_directory: Path,
+        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+    ):
+        self.collection_name = collection_name
+        self.embedding_model_name = embedding_model
+        self.persist_directory = persist_directory
+        
+        self.client: chromadb.Client = self._create_chroma_client()
+        
+        self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=self.embedding_model_name
+        )
+        
+        self.collection: Collection = self.client.get_or_create_collection(
+            name=self.collection_name, 
+            embedding_function=self.ef
+        )
+        logger.info(f"Collection '{collection_name}' loaded/created.")
 
     def _create_chroma_client(self) -> chromadb.Client:    
         """
