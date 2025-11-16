@@ -14,8 +14,10 @@ class AbstractCustomClass(ABC):
 class CustomClassGenerator:
     def __init__(
         self,
+        classname: str = None,
         attributes: List[AddtionalAttribute] = None
     ):
+        self.classname = classname
         self.instance = self._setCustomObject(attributes)
     
     def _setCustomObject(self, attributes: List[AddtionalAttribute]) -> object:
