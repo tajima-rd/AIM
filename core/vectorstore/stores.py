@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # 変更後の chroma_repository.py をインポート
-from chroma import ChromaRepository
+from .chroma import ChromaRepository
 
 logger = logging.getLogger(__name__)
 
