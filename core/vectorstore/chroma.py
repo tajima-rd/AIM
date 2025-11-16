@@ -23,7 +23,7 @@ except ImportError:
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 logger = logging.getLogger(__name__)
 
-class ChromaRepository(BaseModel):    
+class RepositoryConfig:    
     collection_name: str
     persist_directory: Path
     embedding_model: str = DEFAULT_EMBEDDING_MODEL
@@ -51,15 +51,24 @@ class ChromaRepository(BaseModel):
             if clients_data_list is None:
                 raise ValueError("JSON内に 'VectorStores' キーが見つかりません。")
 
-            # Pydantic を使って辞書のリストを VectorStores のリストにパースする
-            try:
-                # Pydantic v2 (推奨)
-                adapter = TypeAdapter(List[cls])
-                return adapter.validate_python(clients_data_list)
-            except ImportError:
-                # Pydantic v1 (フォールバック)
-                return None
-        
+            repositories = []
+            if not isinstance(clients_data_list, list):
+                raise ValueError("JSON内の 'VectorStores' がリストではありません。")
+
+            for store_config in clients_data_list:
+                try:
+                    # cls(**store_config) は Pydantic のバリデーションと
+                    # エイリアス処理 (例: 'cllection_name') を呼び出します
+                    repo_instance = cls(**store_config)
+                    repositories.append(repo_instance)
+                except Exception as e:
+                    # 1つの設定が失敗しても続行 (ロギング)
+                    # logger はクラスメソッドのスコープにないため、print を使用
+                    print(f"警告: VectorStore 設定のパースに失敗しました: {store_config}, エラー: {e}")
+                    continue
+            
+            return repositories
+                
         except json.JSONDecodeError as e:
             print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
             raise ValueError(f"Failed to parse config file: {e}") from e
@@ -68,32 +77,32 @@ class ChromaRepository(BaseModel):
             print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
             raise ValueError(f"Failed to parse or validate config data: {e}") from e
 
-# class ChromaRepository(BaseModel):
-#     collection_name: str
-#     persist_directory: Path
-#     embedding_model: str = DEFAULT_EMBEDDING_MODEL
+class ChromaRepository(BaseModel):
+    collection_name: str
+    persist_directory: Path
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL
 
-#     def __init__(
-#         self,
-#         collection_name: str,
-#         persist_directory: Path,
-#         embedding_model: str = DEFAULT_EMBEDDING_MODEL,
-#     ):
-#         self.collection_name = collection_name
-#         self.embedding_model_name = embedding_model
-#         self.persist_directory = persist_directory
+    def __init__(
+        self,
+        collection_name: str,
+        persist_directory: Path,
+        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+    ):
+        self.collection_name = collection_name
+        self.embedding_model_name = embedding_model
+        self.persist_directory = persist_directory
         
-#         self.client: chromadb.Client = self._create_chroma_client()
+        self.client: chromadb.Client = self._create_chroma_client()
         
-#         self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-#             model_name=self.embedding_model_name
-#         )
+        self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=self.embedding_model_name
+        )
         
-#         self.collection: Collection = self.client.get_or_create_collection(
-#             name=self.collection_name, 
-#             embedding_function=self.ef
-#         )
-#         logger.info(f"Collection '{collection_name}' loaded/created.")
+        self.collection: Collection = self.client.get_or_create_collection(
+            name=self.collection_name, 
+            embedding_function=self.ef
+        )
+        logger.info(f"Collection '{collection_name}' loaded/created.")
 
     def _create_chroma_client(self) -> chromadb.Client:    
         """
