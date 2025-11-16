@@ -5,7 +5,24 @@ Prologエンジンとの通信を担当するリポジトリ層
 
 import logging
 from typing import List, Dict, Any
-from swiplserver import PrologMQI, PrologError, SWIPNotFoundError
+import swiplserver
+
+# Backwards-/forwards-compatible aliases for swiplserver API
+# Older versions exported PrologMQI, newer versions may export Prolog or other names.
+PrologMQI = getattr(swiplserver, "PrologMQI", None)
+if PrologMQI is None:
+    # Try common alternative names used in newer releases
+    PrologMQI = getattr(swiplserver, "Prolog", None) or getattr(swiplserver, "PrologServer", None)
+
+PrologError = getattr(swiplserver, "PrologError", None) or getattr(swiplserver, "SWIPrologError", None) or Exception
+
+SWIPNotFoundError = getattr(swiplserver, "SWIPNotFoundError", None) or getattr(swiplserver, "SWIPrologNotFoundError", None) or ImportError
+
+if PrologMQI is None:
+    raise ImportError(
+        "swiplserver: could not find a PrologMQI/Prolog class in the installed swiplserver package.\n"
+        "Please install a compatible swiplserver version (pip install swiplserver) or adjust the code to the package API."
+    )
 from .metadata_schema import (
     Metadata, 
     ContentsMetadata, 
