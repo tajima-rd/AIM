@@ -6,7 +6,7 @@ Prologエンジンとの通信を担当するリポジトリ層
 import logging
 from typing import List, Dict, Any
 from swiplserver import PrologMQI, PrologError, SWIPNotFoundError
-from metadata_repository import (
+from metadata_schema import (
     Metadata, 
     ContentsMetadata, 
     SourceMetadata, 
