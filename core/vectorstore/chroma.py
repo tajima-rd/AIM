@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 class ChromaRepository(BaseModel):
-    """
-    ChromaClient から ChromaRepository にクラス名を変更。
-    責務はベクトルとIDベースのメタデータの物理的ストア。
-    """
+    collection_name: str
+    persist_directory: Path
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+
     def __init__(
         self,
         collection_name: str,
