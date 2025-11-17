@@ -280,10 +280,10 @@ class SourceMetadata(BaseEntity):
             te = self.additional_temporal_extent
             
             if isinstance(te, TemporalExtentPeriod):
-                meta["src_temp_type"] = "period"
-                meta["src_temp_from"] = te.date_from.isoformat()
-                meta["src_temp_expected"] = te.date_expected.isoformat()
-                meta["src_temp_to"] = te.date_to.isoformat()
+                meta["temp_type"] = "period"
+                meta["temp_period_from"] = te.date_from.timestamp()
+                meta["temp_period_expected"] = te.date_expected.timestamp()
+                meta["temp_period_to"] = te.date_to.timestamp()
 
             elif isinstance(te, TemporalExtentString):
                 meta["src_temp_type"] = "string"
@@ -384,10 +384,9 @@ class ContentsMetadata(BaseEntity):
             # --- A. Period (datetime型: 日付範囲検索用) ---
             if isinstance(te, TemporalExtentPeriod):
                 flat_meta["temp_type"] = "period"
-                # datetime型は ISO 8601 形式の文字列に変換して保存
-                flat_meta["temp_period_from"] = te.date_from.isoformat()
-                flat_meta["temp_period_expected"] = te.date_expected.isoformat()
-                flat_meta["temp_period_to"] = te.date_to.isoformat()
+                flat_meta["temp_period_from"] = te.date_from.timestamp()
+                flat_meta["temp_period_expected"] = te.date_expected.timestamp()
+                flat_meta["temp_period_to"] = te.date_to.timestamp()
 
             # --- B. String (文字列型: "江戸時代"などのキーワード検索用) ---
             elif isinstance(te, TemporalExtentString):
