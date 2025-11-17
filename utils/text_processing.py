@@ -72,32 +72,7 @@ def convert_pdf_markdown(path: str) -> str:
         print(f"doclingでのPDF処理中にエラーが発生しました ({path}): {e}")
         return ""
 
-def split_markdown_to_list(in_file_path: str, indent_num: int):
-    """
-    Markdownファイルを指定された見出しレベルで分割し、個別のテキストファイルとして保存する。
-
-    Args:
-        in_file_path (str): 分割対象のMarkdownファイルのパス。
-        output_folder_path (str): 生成したファイルを保存するフォルダのパス。
-        indent_num (int): 分割の基準となる見出しのレベル（`#`の数）。
-    """
-    # --- 引数のバリデーション ---
-    if not os.path.exists(in_file_path):
-        print(f"エラー: 入力ファイルが見つかりません: '{in_file_path}'")
-        sys.exit(1) # エラーでプログラムを終了
-    if indent_num < 1:
-        print(f"エラー: indent_numは1以上の整数で指定してください。")
-        sys.exit(1)
-
-    # --- 1. 入力ファイルの読み込み ---
-    try:
-        with open(in_file_path, 'r', encoding='utf-8') as f:
-            markdown_text = f.read()
-        print(f"入力ファイルを読み込みました: '{in_file_path}'")
-    except Exception as e:
-        print(f"エラー: ファイルの読み込み中に問題が発生しました。 {e}")
-        sys.exit(1)
-
+def split_markdown_to_list(markdown_text: str, indent_num: int):
     # --- 3. 動的に分割パターンを生成 ---
     split_pattern = f'\n(?={"#" * indent_num} )'
     heading_marker_to_remove = "#" * indent_num
