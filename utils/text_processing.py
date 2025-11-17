@@ -69,8 +69,7 @@ def convert_pdf_markdown(path: str) -> str:
         
         # 変換結果をMarkdown文字列に変換
         markdown_text = result.document.export_to_markdown()
-        print(markdown_text[:500])  # 抽出されたテキストの最初の500文字を表示（デバッグ用）
-        
+                
         return markdown_text.strip()
         
     except Exception as e:
@@ -153,18 +152,6 @@ def safe_parse_json(s: str) -> Optional[Dict]:
     return None
 
 def get_ordered_characters(text: str, all_characters: List[Character]) -> List[Character]:
-    """
-    テキストを解析し、登場するキャラクターを登場順に抽出し、
-    Characterオブジェクトのリストとして返します。
-    SSML形式 (<voice name="...">) と 台本形式 (話者名:) の両方に対応します。
-
-    Args:
-        text (str): 解析対象のテキスト（台本やSSML）。
-        all_characters (List[Character]): プロジェクトに登録されている全キャラクターのリスト。
-
-    Returns:
-        List[Character]: テキストに登場した順に並べられたCharacterオブジェクトのリスト。
-    """
     # 効率的な検索のために、名前とボイス名からCharacterオブジェクトを引ける辞書を作成
     name_to_char_map = {char.name: char for char in all_characters}
     voice_to_char_map = {char.voice.api_name: char for char in all_characters}
