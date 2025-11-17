@@ -3,11 +3,12 @@ import logging
 from pypdf import PdfReader
 from jinja2 import Template
 from docling.document_converter import DocumentConverter
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions, PdfFormatOption
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from typing import List, Dict, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 
 # 循環参照を避けるため、型チェック時のみインポート
 from typing import TYPE_CHECKING
