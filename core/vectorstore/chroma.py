@@ -104,6 +104,55 @@ class ChromaRepository(BaseModel):
         )
         logger.info(f"Collection '{collection_name}' loaded/created.")
 
+    @classmethod
+    def load_from_json(cls, config_path: Path) -> List["ChromaRepository"]:
+        if not config_path.exists():
+            print(f"設定ファイルが見つかりません: {config_path}")
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data_list = json.load(f)
+            
+            # "MCP_Clients" セクションを探す
+            clients_data_list = None
+            if not isinstance(config_data_list, list):
+                 raise ValueError("JSONのルートがリストではありません。")
+
+            for item in config_data_list:
+                if isinstance(item, dict) and "VectorStores" in item:
+                    clients_data_list = item["VectorStores"]
+                    break
+            
+            if clients_data_list is None:
+                raise ValueError("JSON内に 'VectorStores' キーが見つかりません。")
+
+            repositories = []
+            if not isinstance(clients_data_list, list):
+                raise ValueError("JSON内の 'VectorStores' がリストではありません。")
+
+            for store_config in clients_data_list:
+                try:
+                    # cls(**store_config) は Pydantic のバリデーションと
+                    # エイリアス処理 (例: 'cllection_name') を呼び出します
+                    repo_instance = cls(**store_config)
+                    repositories.append(repo_instance)
+                except Exception as e:
+                    # 1つの設定が失敗しても続行 (ロギング)
+                    # logger はクラスメソッドのスコープにないため、print を使用
+                    print(f"警告: VectorStore 設定のパースに失敗しました: {store_config}, エラー: {e}")
+                    continue
+            
+            return repositories
+                
+        except json.JSONDecodeError as e:
+            print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
+            raise ValueError(f"Failed to parse config file: {e}") from e
+        except Exception as e:
+            # (Pydantic のバリデーションエラーなどもキャッチ)
+            print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
+            raise ValueError(f"Failed to parse or validate config data: {e}") from e
+    
     def _create_chroma_client(self) -> chromadb.Client:    
         """
         低レベルのクライアント作成処理 (元のロジックをそのまま使用)
