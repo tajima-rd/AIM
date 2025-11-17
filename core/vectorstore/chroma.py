@@ -141,12 +141,12 @@ class ChromaRepository:
             return []
 
         try:
-            logger.info(f"Querying collection '{self.collection_name}' (k={k}, filter={where_filter})")
+            logger.info(f"Querying collection '{self.collection_name}' (k={k}, filter={where})")
             
             res = self.collection.query(
                 query_texts=query_texts, 
                 n_results=k,
-                where=where_filter 
+                where=where 
             )
             
             out = []
