@@ -307,6 +307,8 @@ class SourceMetadata(BaseEntity):
 
 class ContentsMetadata(BaseEntity):
     def __init__(self, 
+                 title: str,
+                 reference: str,
                  abstract: str, 
                  topic_category: str, 
                  keyword_ids: List[str], 
@@ -316,6 +318,8 @@ class ContentsMetadata(BaseEntity):
                  custom_class_root: Optional[CustomClass] = None):
         
         self.id = id if id else generate_short_id("cont")
+        self.title = title
+        self.reference = reference
         self.abstract = abstract
         self.topic_category = topic_category
         self.keyword_ids = keyword_ids if keyword_ids is not None else []
@@ -326,6 +330,8 @@ class ContentsMetadata(BaseEntity):
     def to_dict(self) -> Dict[str, Any]:
         data = {
             "id": self.id,
+            "title": self.title,
+            "reference": self.reference,
             "abstract": self.abstract,
             "topic_category": self.topic_category,
             "keyword_ids": self.keyword_ids,
@@ -341,6 +347,8 @@ class ContentsMetadata(BaseEntity):
         # 基本フィールド
         flat_meta = {
             "id": self.id,
+            "reference": self.reference,
+            "abstract": self.abstract,
             "topic_category": self.topic_category,
             "keywords_str": ",".join(self.keyword_ids), 
             "structured": self.as_json(indent=None)

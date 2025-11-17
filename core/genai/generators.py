@@ -20,9 +20,6 @@ from ..config import (
 from ...utils.audio_processor import AudioProcessor
 
 
-# ==============================================================================
-# 抽象基底生成器クラス
-# ==============================================================================
 class AbstractBaseGenerator(abc.ABC):
     def __init__(
             self, 
