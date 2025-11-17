@@ -46,10 +46,7 @@ class PrologRepository:
         try:
             self.mqi = PrologMQI()
             self.prolog_thread = self.mqi.create_thread()
-            
             logger.info(f"Loading knowledge base: {knowledge_base_file}")
-            # 仕様書で定義した規則(inconsistent_compositionなど)と、
-            # 既存の事実(has_citationの定義など)をロードする
             self.prolog_thread.consult(knowledge_base_file)
             logger.info("Prolog knowledge base loaded successfully.")
             
@@ -63,17 +60,10 @@ class PrologRepository:
             raise
 
     def __del__(self):
-        """
-        クリーンアップ
-        """
         if hasattr(self, 'mqi'):
             self.mqi.stop()
 
     def insert_facts(self, facts: List[str]) -> bool:
-        """
-        Prologの「事実」のリストを知識ベースにassert (挿入) する。
-        例: facts = ["metadata('meta_001')", "composes_contents('meta_001', 'content_B')"]
-        """
         try:
             for fact in facts:
                 # 'assertz' を使って事実をKBの末尾に追加
@@ -180,9 +170,6 @@ class PrologRepository:
         return [f.replace("'", "\\'") for f in facts] # Prologのエスケープ処理
 
     def _convert_custom_class_to_facts(self, cclass: CustomClass) -> List[str]:
-        """
-        CustomClassオブジェクトを再帰的にPrologの事実に変換する
-        """
         facts = []
         facts.append(f"custom_class('{cclass.id}', '{cclass.classname}')")
         
