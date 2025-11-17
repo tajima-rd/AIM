@@ -1,46 +1,108 @@
-"""
-Prologのための標準実装仕様書」で定義されたUMLモデルを
-Pydanticモデルとして定義する (ドメインモデル層)
-"""
-
 import uuid
+import json
 from datetime import datetime
 from typing import List, Dict, Any, Union, Optional
-from pydantic import BaseModel, Field
+
+# -----------------------------------------------
+# ヘルパー & 基底クラス
+# -----------------------------------------------
+
+def generate_short_id(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:8]}"
+
+class BaseEntity:
+    """
+    共通機能のみを提供する基底クラス。
+    データの辞書化ロジック(to_dict)は各サブクラスに委譲する。
+    """
+    def as_json(self, indent: int = 2) -> str:
+        """
+        自身をJSON文字列に変換する。
+        内部で各クラスの to_dict() を呼び出す。
+        """
+        def custom_serializer(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            raise TypeError(f"Type {type(obj)} is not JSON serializable")
+
+        return json.dumps(
+            self.to_dict(), 
+            default=custom_serializer, 
+            ensure_ascii=False, 
+            indent=indent
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        【必須実装】自身のデータを辞書形式で返す。
+        """
+        raise NotImplementedError("Subclasses must implement to_dict()")
+
 
 # -----------------------------------------------
 # 4. Prologマッピング - 範囲定義 (Extent)
 # -----------------------------------------------
 
-# 4.1. GeographicExtent (Union型)
-# (Prolog: geographic_extent_is_description, _is_point, _is_surface)
-class GeoExtentDescription(BaseModel):
-    description: str = Field(..., description="記述 (例: 竹島エリア)")
+class GeoExtentDescription(BaseEntity):
+    def __init__(self, description: str):
+        self.description = description
 
-class GeoExtentPoint(BaseModel):
-    lat: float
-    lon: float
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "description": self.description
+        }
 
-class GeoExtentSurface(BaseModel):
-    wkt: str = Field(..., description="WKT形式のポリゴン")
+class GeoExtentPoint(BaseEntity):
+    def __init__(self, lat: float, lon: float):
+        self.lat = lat
+        self.lon = lon
 
-# PydanticのUnion型で <<Union>> ステレオタイプを表現
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "lat": self.lat,
+            "lon": self.lon
+        }
+
+class GeoExtentSurface(BaseEntity):
+    def __init__(self, wkt: str):
+        self.wkt = wkt
+        
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "wkt": self.wkt
+        }
+
+# Type Hint
 GeographicExtent = Union[GeoExtentDescription, GeoExtentPoint, GeoExtentSurface]
 
 
-# 4.2. TemporalExtent (確率的モデル)
-# (Prolog: temporal_extent_is_beta_distribution, _is_instant)
-class TemporalExtentBetaDistribution(BaseModel):
-    description: str = Field(..., description="UMLの expected (例: 1950年代頃)")
-    start_instant: datetime = Field(..., description="論議領域の開始 (UMLの open)")
-    end_instant: datetime = Field(..., description="論議領域の終了 (UMLの close)")
-    alpha: float = Field(..., description="ベータ分布の形状パラメータα")
-    beta: float = Field(..., description="ベータ分布の形状パラメータβ")
+class TemporalExtentBetaDistribution(BaseEntity):
+    def __init__(self, description: str, start_instant: datetime, end_instant: datetime, alpha: float, beta: float):
+        self.description = description
+        self.start_instant = start_instant
+        self.end_instant = end_instant
+        self.alpha = alpha
+        self.beta = beta
 
-class TemporalExtentInstant(BaseModel):
-    instant: datetime = Field(..., description="厳密な日付")
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "description": self.description,
+            "start_instant": self.start_instant, # JSON化時にas_json側でISO変換される
+            "end_instant": self.end_instant,
+            "alpha": self.alpha,
+            "beta": self.beta
+        }
 
-# PydanticのUnion型で、確率的または厳密な日付を表現
+class TemporalExtentInstant(BaseEntity):
+    def __init__(self, instant: datetime):
+        self.instant = instant
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "instant": self.instant
+        }
+
+# Type Hint
 TemporalExtent = Union[TemporalExtentBetaDistribution, TemporalExtentInstant]
 
 
@@ -48,90 +110,160 @@ TemporalExtent = Union[TemporalExtentBetaDistribution, TemporalExtentInstant]
 # 5. Prologマッピング - CustomClass (階層型EAV)
 # -----------------------------------------------
 
-class Attribute(BaseModel):
-    """
-    UMLの Attributes クラス
-    (Prolog: attribute_value)
-    """
-    id: str = Field(default_factory=lambda: f"attr_{uuid.uuid4().hex[:8]}")
-    key: str
-    value: Any
-    datatype: str
-    description: str = ""
-    # UMLの自己参照 (AttributeOfAttribute)
-    children: List['Attribute'] = Field(default_factory=list)
+class Attribute(BaseEntity):
+    def __init__(self, key: str, value: Any, datatype: str, description: str = "", id: Optional[str] = None, children: Optional[List['Attribute']] = None):
+        self.id = id if id else generate_short_id("attr")
+        self.key = key
+        self.value = value
+        self.datatype = datatype
+        self.description = description
+        self.children = children if children is not None else []
 
-class CustomClass(BaseModel):
-    """
-    UMLの CustomClass クラス
-    (Prolog: custom_class)
-    """
-    id: str = Field(default_factory=lambda: f"cclass_{uuid.uuid4().hex[:8]}")
-    classname: str
-    # UMLの CustomClass *--> Attributes
-    attributes: List[Attribute] = Field(default_factory=list)
-    # UMLの自己参照 (ClassOfClass)
-    children: List['CustomClass'] = Field(default_factory=list)
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "key": self.key,
+            "value": self.value,
+            "datatype": self.datatype,
+            "description": self.description,
+            # 再帰的に子要素の to_dict を呼ぶ
+            "children": [child.to_dict() for child in self.children]
+        }
+
+class CustomClass(BaseEntity):
+    def __init__(self, classname: str, id: Optional[str] = None, attributes: Optional[List[Attribute]] = None, children: Optional[List['CustomClass']] = None):
+        self.id = id if id else generate_short_id("cclass")
+        self.classname = classname
+        self.attributes = attributes if attributes is not None else []
+        self.children = children if children is not None else []
+
+    def add_attribute(self, attr: Attribute):
+        self.attributes.append(attr)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "classname": self.classname,
+            "attributes": [attr.to_dict() for attr in self.attributes],
+            "children": [child.to_dict() for child in self.children]
+        }
 
 
 # -----------------------------------------------
 # 3. Prologマッピング - 主要クラス
 # -----------------------------------------------
 
-class SourceMetadata(BaseModel):
-    """
-    3.2. SourceMetadata クラス (集約される側)
-    """
-    id: str = Field(default_factory=lambda: f"src_{uuid.uuid4().hex[:8]}")
-    # (Prolog: has_citation, has_reference_system)
-    citation_id: str # CI_Citationの実体はPrologが管理
-    reference_system_id: str # MD_ReferenceSystemの実体はPrologが管理
-    
-    # (Prolog: source_attribute)
-    additional_temporal_extent: Optional[Any] = None
-    additional_geographic_extent: Optional[Any] = None
+class SourceMetadata(BaseEntity):
+    def __init__(self, citation_id: str, reference_system_id: str, id: Optional[str] = None, additional_temporal_extent: Optional[Any] = None, additional_geographic_extent: Optional[Any] = None):
+        self.id = id if id else generate_short_id("src")
+        self.citation_id = citation_id
+        self.reference_system_id = reference_system_id
+        self.additional_temporal_extent = additional_temporal_extent
+        self.additional_geographic_extent = additional_geographic_extent
 
-class ContentsMetadata(BaseModel):
-    """
-    3.3. ContentsMetadata クラス (コンポジションされる側)
-    """
-    id: str = Field(default_factory=lambda: f"cont_{uuid.uuid4().hex[:8]}")
-    
-    # (Prolog: contents_attribute)
-    abstract: str
-    topic_category: str
-    
-    # (Prolog: has_keyword)
-    keyword_ids: List[str] # MD_Keywordsの実体はPrologが管理
-    
-    # (Prolog: has_geographic_extent)
-    geographic_extent: GeographicExtent
-    
-    # (Prolog: has_temporal_extent)
-    temporal_extent: TemporalExtent
-    
-    # (Prolog: aggregates_custom)
-    custom_class_root: Optional[CustomClass] = None
+    def to_dict(self) -> Dict[str, Any]:
+        # additional_... が BaseEntity なら to_dict を呼ぶ、そうでなければそのまま
+        ate = self.additional_temporal_extent
+        age = self.additional_geographic_extent
+        
+        return {
+            "id": self.id,
+            "citation_id": self.citation_id,
+            "reference_system_id": self.reference_system_id,
+            "additional_temporal_extent": ate.to_dict() if isinstance(ate, BaseEntity) else ate,
+            "additional_geographic_extent": age.to_dict() if isinstance(age, BaseEntity) else age
+        }
 
-class Metadata(BaseModel):
+
+class ContentsMetadata(BaseEntity):
+    def __init__(self, 
+                 abstract: str, 
+                 topic_category: str, 
+                 keyword_ids: List[str], 
+                 geographic_extent: GeographicExtent, 
+                 temporal_extent: TemporalExtent, 
+                 id: Optional[str] = None,
+                 custom_class_root: Optional[CustomClass] = None):
+        
+        self.id = id if id else generate_short_id("cont")
+        self.abstract = abstract
+        self.topic_category = topic_category
+        self.keyword_ids = keyword_ids if keyword_ids is not None else []
+        self.geographic_extent = geographic_extent
+        self.temporal_extent = temporal_extent
+        self.custom_class_root = custom_class_root
+
+    def to_dict(self) -> Dict[str, Any]:
+        # 1. 標準的なフィールドの辞書化
+        data = {
+            "id": self.id,
+            "abstract": self.abstract,
+            "topic_category": self.topic_category,
+            "keyword_ids": self.keyword_ids,
+            "geographic_extent": self.geographic_extent.to_dict() if self.geographic_extent else None,
+            "temporal_extent": self.temporal_extent.to_dict() if self.temporal_extent else None,
+        }
+
+        # 2. custom_class_root の動的キー生成ロジック
+        if self.custom_class_root:
+            # キー名を "class: {classname}" にする
+            key_name = f"class: {self.custom_class_root.classname}"
+            data[key_name] = self.custom_class_root.to_dict()
+        else:
+            # データがない場合は None を明示するか、キーを含めないかは要件次第
+            # ここではキーを含めない（スッキリさせる）実装にします
+            pass
+
+        return data
+
+
+class Metadata(BaseEntity):
+    ご指摘ありがとうございます。メタデータスキーマ（ISO 19115等）の実態に合わせて、1つのメタデータが 「複数のソース (sources)」 と 「複数のコンテンツ記述 (contents)」 を集約できるように修正します。
+
+型ヒントを List[...] に変更し、__init__ と to_dict の処理をリスト対応型に書き換えます。
+
+修正後の Metadata クラス
+Python
+
+class Metadata(BaseEntity):
     """
-    3.1. Metadata クラス (最上位のコンテナ)
+    3.1. Metadata クラス (最上位コンテナ)
+    修正: 複数の SourceMetadata と 複数の ContentsMetadata を保持できるように変更
     """
-    id: str = Field(default_factory=lambda: f"meta_{uuid.uuid4().hex[:8]}")
-    
-    # (Prolog: metadata_attribute)
-    datastamp: datetime = Field(default_factory=datetime.now)
-    language: str = "jpn"
-    
-    # (Prolog: metadata_contact)
-    contact_id: str # CI_Contactの実体はPrologが管理
-    
-    # --- 関係性の定義 ---
-    
-    # (Prolog: aggregates_source)
-    # (Metadata o--> SourceMetadata)
-    source: SourceMetadata
-    
-    # (Prolog: composes_contents)
-    # (Metadata *--> ContentsMetadata)
-    contents: ContentsMetadata
+    def __init__(
+            self, 
+            contact_id: str,
+            sources: Optional[List[SourceMetadata]] = None,   # 複数形に変更
+            contents: Optional[List[ContentsMetadata]] = None, # 複数形に変更 (中身はリスト)
+            id: Optional[str] = None, 
+            language: str = "jpn", 
+            datastamp: Optional[datetime] = None
+    ):
+        self.id = id if id else generate_short_id("meta")
+        
+        # リストの初期化 (Noneの場合は空リスト)
+        self.sources = sources if sources is not None else []
+        self.contents = contents if contents is not None else []
+        
+        self.contact_id = contact_id
+        self.language = language
+        self.datastamp = datastamp if datastamp else datetime.now()
+
+    def add_source(self, source: SourceMetadata):
+        """後からソースを追加するためのメソッド"""
+        self.sources.append(source)
+
+    def add_contents(self, content: ContentsMetadata):
+        """後からコンテンツを追加するためのメソッド"""
+        self.contents.append(content)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "datastamp": self.datastamp,
+            "language": self.language,
+            "contact_id": self.contact_id,
+            # リスト内の各要素の to_dict を呼び出して展開する
+            "sources": [src.to_dict() for src in self.sources],
+            "contents": [cont.to_dict() for cont in self.contents]
+        }
