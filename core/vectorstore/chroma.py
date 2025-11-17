@@ -23,59 +23,6 @@ except ImportError:
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 logger = logging.getLogger(__name__)
 
-class RepositoryConfig:    
-    collection_name: str
-    persist_directory: Path
-    embedding_model: str = DEFAULT_EMBEDDING_MODEL
-
-    @classmethod
-    def load_from_json(cls, config_path: Path) -> List["ChromaRepository"]:
-        if not config_path.exists():
-            print(f"設定ファイルが見つかりません: {config_path}")
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data_list = json.load(f)
-            
-            # "MCP_Clients" セクションを探す
-            clients_data_list = None
-            if not isinstance(config_data_list, list):
-                 raise ValueError("JSONのルートがリストではありません。")
-
-            for item in config_data_list:
-                if isinstance(item, dict) and "VectorStores" in item:
-                    clients_data_list = item["VectorStores"]
-                    break
-            
-            if clients_data_list is None:
-                raise ValueError("JSON内に 'VectorStores' キーが見つかりません。")
-
-            repositories = []
-            if not isinstance(clients_data_list, list):
-                raise ValueError("JSON内の 'VectorStores' がリストではありません。")
-
-            for store_config in clients_data_list:
-                try:
-                    # cls(**store_config) は Pydantic のバリデーションと
-                    # エイリアス処理 (例: 'cllection_name') を呼び出します
-                    repo_instance = cls(**store_config)
-                    repositories.append(repo_instance)
-                except Exception as e:
-                    # 1つの設定が失敗しても続行 (ロギング)
-                    # logger はクラスメソッドのスコープにないため、print を使用
-                    print(f"警告: VectorStore 設定のパースに失敗しました: {store_config}, エラー: {e}")
-                    continue
-            
-            return repositories
-                
-        except json.JSONDecodeError as e:
-            print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
-            raise ValueError(f"Failed to parse config file: {e}") from e
-        except Exception as e:
-            # (Pydantic のバリデーションエラーなどもキャッチ)
-            print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
-            raise ValueError(f"Failed to parse or validate config data: {e}") from e
 
 class ChromaRepository(BaseModel):
     collection_name: str
@@ -86,10 +33,10 @@ class ChromaRepository(BaseModel):
         self,
         collection_name: str,
         persist_directory: Path,
-        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+        embedding_model_name: str = DEFAULT_EMBEDDING_MODEL,
     ):
         self.collection_name = collection_name
-        self.embedding_model_name = embedding_model
+        self.embedding_model_name = embedding_model_name
         self.persist_directory = persist_directory
         
         self.client: chromadb.Client = self._create_chroma_client()
