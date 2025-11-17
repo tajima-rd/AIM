@@ -24,7 +24,7 @@ DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 logger = logging.getLogger(__name__)
 
 
-class ChromaRepository(BaseModel):
+class ChromaRepository:
     collection_name: str
     persist_directory: Path
     embedding_model: str = DEFAULT_EMBEDDING_MODEL
