@@ -91,29 +91,83 @@ def configure_generators(request: ConfigureRequest):
 
     print("--- ジェネレーターの設定を開始します ---")
     
-    # 汎用的な設定オブジェクトを作成
     write_config = WriteConfig()
     speech_config = SpeechConfig()
 
     for config in request.configs:
         try:
+            # フラグ: 登録が成功したかどうか
+            registered = False
+
             if config.client_type == "gemini":
                 client = GeminiApiClient(api_key=config.api_key, model_name=config.model_name)
                 if "text" in config.generator_name:
                     GENERATORS[config.generator_name] = GeminiTextGenerator(api_client=client, write_config=write_config)
                 elif "speech" in config.generator_name:
                     GENERATORS[config.generator_name] = GeminiSpeechGenerator(api_client=client, speech_config=speech_config)
+                
+                registered = True
             
-            elif config.client_type == "llamacpp":
+            elif config.client_type == "llamacpp": # JSON側をこれに合わせたならこのままでOK
+                # ※もしJSONが 'llamacpp_text' なら、ここも合わせるか、OR条件にする必要があります
                 client = LlamaCppApiClient(api_key=config.api_key, model_name=config.model_name, api_url=config.api_url)
                 GENERATORS[config.generator_name] = LlamaCppTextGenerator(api_client=client, write_config=write_config)
+                
+                registered = True
             
-            print(f"'{config.generator_name}' のセットアップが完了しました。")
+            else:
+                # ★ここが重要: 想定外の client_type が来た場合のハンドリング
+                print(f"警告: 未知の client_type '{config.client_type}' が指定されました。スキップします。 (Generator: {config.generator_name})")
+
+            # 成功メッセージは、実際に登録された場合のみ出す
+            if registered:
+                print(f"'{config.generator_name}' のセットアップが完了しました。")
 
         except Exception as e:
+            # 初期化失敗時のエラーハンドリング
             print(f"'{config.generator_name}' のセットアップ中にエラーが発生しました: {e}")
+            # 必要であれば traceback を出力
+            # import traceback
+            # traceback.print_exc()
+    
+    # 最終確認ログ
+    print(f"サーバーの設定が完了しました。利用可能なモデル: {list(GENERATORS.keys())}")
     
     return {"message": "Configuration successful.", "configured_generators": list(GENERATORS.keys())}
+
+# @app.post("/configure")
+# def configure_generators(request: ConfigureRequest):
+#     """
+#     設定情報を受け取り、サーバー内でジェネレーターをインスタンス化する。
+#     """
+#     global GENERATORS
+#     GENERATORS = {} # 設定のたびにリセット
+
+#     print("--- ジェネレーターの設定を開始します ---")
+    
+#     # 汎用的な設定オブジェクトを作成
+#     write_config = WriteConfig()
+#     speech_config = SpeechConfig()
+
+#     for config in request.configs:
+#         try:
+#             if config.client_type == "gemini":
+#                 client = GeminiApiClient(api_key=config.api_key, model_name=config.model_name)
+#                 if "text" in config.generator_name:
+#                     GENERATORS[config.generator_name] = GeminiTextGenerator(api_client=client, write_config=write_config)
+#                 elif "speech" in config.generator_name:
+#                     GENERATORS[config.generator_name] = GeminiSpeechGenerator(api_client=client, speech_config=speech_config)
+            
+#             elif config.client_type == "llamacpp":
+#                 client = LlamaCppApiClient(api_key=config.api_key, model_name=config.model_name, api_url=config.api_url)
+#                 GENERATORS[config.generator_name] = LlamaCppTextGenerator(api_client=client, write_config=write_config)
+            
+#             print(f"'{config.generator_name}' のセットアップが完了しました。")
+
+#         except Exception as e:
+#             print(f"'{config.generator_name}' のセットアップ中にエラーが発生しました: {e}")
+    
+#     return {"message": "Configuration successful.", "configured_generators": list(GENERATORS.keys())}
 
 @app.post("/generate_text", response_model=GenerateResponse)
 def generate_text(request: GenerateRequest):
