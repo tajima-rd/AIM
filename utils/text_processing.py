@@ -5,6 +5,7 @@ from jinja2 import Template
 from docling.document_converter import DocumentConverter
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.base_models import InputFormat  # ★これを追加
 
 from typing import List, Dict, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -110,6 +111,7 @@ def split_markdown_to_list(markdown_text: str, indent_num: int):
     print("\n処理が完了しました。")
     if not contents:
         print("指定された見出しレベルに一致するセクションが見つからなかったため、ファイルは生成されませんでした。")
+        print(markdown_text)
     else:
         print(f"{len(contents)}個のファイルが生成されました:")
     
