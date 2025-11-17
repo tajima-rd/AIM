@@ -134,7 +134,7 @@ class ChromaRepository:
         self, 
         query_texts: List[str], 
         k: int = 4,
-        where_filter: Dict[str, Any] = None 
+        where: Dict[str, Any] = None 
     ) -> List[Dict[str, Any]]:
         if not query_texts:
             logger.warning("Query texts list is empty. Returning empty list.")
