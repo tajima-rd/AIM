@@ -3,6 +3,9 @@ import logging
 from pypdf import PdfReader
 from jinja2 import Template
 from docling.document_converter import DocumentConverter
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions, PdfFormatOption
+
 from typing import List, Dict, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -34,23 +37,22 @@ text_splitter = RecursiveCharacterTextSplitter(
 # Utility: PDF text extraction
 # ---------------------------
 try:
-    # デフォルト設定でコンバーターを初期化
-    docling_converter = DocumentConverter()
+    # --- OCR無効化の設定 ---
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.do_ocr = True
+    pipeline_options.do_table_structure = True
+
+    # オプションを適用してコンバーターを初期化
+    docling_converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+        }
+    )
 except Exception as e:
     print(f"doclingコンバーターの初期化に失敗しました: {e}")
     docling_converter = None
 
 def convert_pdf_markdown(path: str) -> str:
-    """
-    doclingを使用してPDFファイルから構造化されたMarkdownテキストを抽出します。
-
-    Args:
-        path (str): PDFファイルのパス。
-
-    Returns:
-        str: 抽出されたMarkdownテキスト。
-             ファイルが見つからない場合や処理に失敗した場合は空文字を返します。
-    """
     if docling_converter is None:
         print("doclingコンバーターが初期化されていません。")
         return ""
@@ -65,6 +67,7 @@ def convert_pdf_markdown(path: str) -> str:
         
         # 変換結果をMarkdown文字列に変換
         markdown_text = result.document.export_to_markdown()
+        print(markdown_text[:500])  # 抽出されたテキストの最初の500文字を表示（デバッグ用）
         
         return markdown_text.strip()
         
@@ -108,6 +111,8 @@ def split_markdown_to_list(markdown_text: str, indent_num: int):
         print("指定された見出しレベルに一致するセクションが見つからなかったため、ファイルは生成されませんでした。")
     else:
         print(f"{len(contents)}個のファイルが生成されました:")
+    
+    return contents
 
 # ---------------------------
 # Utility: Basic chunking for long text
