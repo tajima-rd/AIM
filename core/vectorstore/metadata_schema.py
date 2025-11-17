@@ -216,15 +216,6 @@ class ContentsMetadata(BaseEntity):
 
         return data
 
-
-class Metadata(BaseEntity):
-    ご指摘ありがとうございます。メタデータスキーマ（ISO 19115等）の実態に合わせて、1つのメタデータが 「複数のソース (sources)」 と 「複数のコンテンツ記述 (contents)」 を集約できるように修正します。
-
-型ヒントを List[...] に変更し、__init__ と to_dict の処理をリスト対応型に書き換えます。
-
-修正後の Metadata クラス
-Python
-
 class Metadata(BaseEntity):
     """
     3.1. Metadata クラス (最上位コンテナ)
