@@ -1,13 +1,13 @@
 """
 ChromaDBとの通信を担当するリポジトリ層
-(元の chroma_client.py をリファクタリング)
+(Pydantic非依存・パス修正版)
 """
-import logging, json
+import logging
+import json
+import sys
+import os
 from pathlib import Path
 from typing import List, Dict, Any
-import sys
-
-from pydantic import BaseModel, TypeAdapter
 
 try:
     import chromadb
@@ -25,31 +25,36 @@ logger = logging.getLogger(__name__)
 
 
 class ChromaRepository:
-    collection_name: str
-    persist_directory: Path
-    embedding_model: str = DEFAULT_EMBEDDING_MODEL
-
     def __init__(
         self,
         collection_name: str,
-        persist_directory: Path,
+        persist_directory: str,  # JSONからは文字列として渡される
         embedding_model_name: str = DEFAULT_EMBEDDING_MODEL,
     ):
         self.collection_name = collection_name
         self.embedding_model_name = embedding_model_name
-        self.persist_directory = persist_directory
         
-        self.client: chromadb.Client = self._create_chroma_client()
+        # 【重要】ここで文字列を Path オブジェクトに変換します
+        # これにより .exists() や .mkdir() が使えるようになります
+        self.persist_directory = Path(persist_directory)
+
+        # DB接続の初期化
+        self._initialize_chroma()
+
+    def _initialize_chroma(self):
+        """DB接続の実処理"""
+        # DBクライアント作成 (内部で self.persist_directory.exists() を使用)
+        self.client = self._create_chroma_client()
         
         self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=self.embedding_model_name
         )
         
-        self.collection: Collection = self.client.get_or_create_collection(
+        self.collection = self.client.get_or_create_collection(
             name=self.collection_name, 
             embedding_function=self.ef
         )
-        logger.info(f"Collection '{collection_name}' loaded/created.")
+        logger.info(f"Collection '{self.collection_name}' loaded/created.")
 
     @classmethod
     def load_from_json(cls, config_path: Path) -> List["ChromaRepository"]:
@@ -61,33 +66,30 @@ class ChromaRepository:
             with open(config_path, 'r', encoding='utf-8') as f:
                 config_data_list = json.load(f)
             
-            # "MCP_Clients" セクションを探す
             clients_data_list = None
-            if not isinstance(config_data_list, list):
-                 raise ValueError("JSONのルートがリストではありません。")
-
-            for item in config_data_list:
-                if isinstance(item, dict) and "VectorStores" in item:
-                    clients_data_list = item["VectorStores"]
-                    break
+            # JSON構造の解析
+            if isinstance(config_data_list, list):
+                for item in config_data_list:
+                    if isinstance(item, dict) and "VectorStores" in item:
+                        clients_data_list = item["VectorStores"]
+                        break
+            elif isinstance(config_data_list, dict) and "VectorStores" in config_data_list:
+                clients_data_list = config_data_list["VectorStores"]
             
             if clients_data_list is None:
                 raise ValueError("JSON内に 'VectorStores' キーが見つかりません。")
 
-            repositories = []
             if not isinstance(clients_data_list, list):
                 raise ValueError("JSON内の 'VectorStores' がリストではありません。")
 
+            repositories = []
             for store_config in clients_data_list:
                 try:
-                    # cls(**store_config) は Pydantic のバリデーションと
-                    # エイリアス処理 (例: 'cllection_name') を呼び出します
+                    # ここで __init__ が呼ばれる (引数はすべて文字列のまま)
                     repo_instance = cls(**store_config)
                     repositories.append(repo_instance)
                 except Exception as e:
-                    # 1つの設定が失敗しても続行 (ロギング)
-                    # logger はクラスメソッドのスコープにないため、print を使用
-                    print(f"警告: VectorStore 設定のパースに失敗しました: {store_config}, エラー: {e}")
+                    print(f"警告: VectorStore 設定の初期化に失敗しました: {store_config}, エラー: {e}")
                     continue
             
             return repositories
@@ -96,21 +98,18 @@ class ChromaRepository:
             print(f"設定ファイルのJSONパースに失敗しました: {config_path} ({e})")
             raise ValueError(f"Failed to parse config file: {e}") from e
         except Exception as e:
-            # (Pydantic のバリデーションエラーなどもキャッチ)
-            print(f"設定データのパースまたはバリデーションに失敗しました: {e}")
+            print(f"設定データのロードに失敗しました: {e}")
             raise ValueError(f"Failed to parse or validate config data: {e}") from e
     
     def _create_chroma_client(self) -> chromadb.Client:    
-        """
-        低レベルのクライアント作成処理 (元のロジックをそのまま使用)
-        """
         if self.persist_directory is None:
             logger.error("ChromaDB の persist_directory が None で指定されました。")
-            raise ValueError("persist_directory must be provided and cannot be None.")
+            raise ValueError("persist_directory must be provided.")
 
         logger.info(f"Initializing Chroma client (persist_directory: {self.persist_directory})")
         
         try:
+            # self.persist_directory は Path オブジェクトになっているため .exists() が動作する
             if not self.persist_directory.exists():
                 logger.info(f"Directory not found. Attempting to create: {self.persist_directory}")
                 self.persist_directory.mkdir(parents=True, exist_ok=True)
@@ -122,15 +121,11 @@ class ChromaRepository:
                 persist_directory=str(self.persist_directory),
                 is_persistent=True,
             )
-            client = chromadb.Client(settings)
-            return client
+            return chromadb.Client(settings)
             
         except PermissionError as e:
             logger.error(f"Permission denied for ChromaDB directory: {self.persist_directory}", exc_info=True)
             raise IOError(f"Permission denied for {self.persist_directory}. Check folder permissions.") from e
-        except ChromaError as e:
-            logger.error(f"ChromaDB initialization error: {e}", exc_info=True)
-            raise Exception(f"Failed to initialize ChromaDB client (DB might be locked or corrupted): {e}") from e
         except Exception as e:
             logger.error(f"An unexpected error occurred during ChromaDB initialization: {e}", exc_info=True)
             raise Exception(f"An unexpected error occurred: {e}") from e
@@ -139,12 +134,8 @@ class ChromaRepository:
         self, 
         query_texts: List[str], 
         k: int = 4,
-        where_filter: Dict[str, Any] = None # Prologの推論結果でフィルタできるよう引数を追加
+        where_filter: Dict[str, Any] = None 
     ) -> List[Dict[str, Any]]:
-        """
-        クエリを実行する。
-        (元の query_chroma をベースに、フィルタ機能を追加)
-        """
         if not query_texts:
             logger.warning("Query texts list is empty. Returning empty list.")
             return []
@@ -155,23 +146,23 @@ class ChromaRepository:
             res = self.collection.query(
                 query_texts=query_texts, 
                 n_results=k,
-                where=where_filter # where 句を適用
+                where=where_filter 
             )
             
             out = []
-            # res の構造に合わせて安全に取得 (元のロジックを流用)
             docs = res.get("documents", [[]])[0]
             metas = res.get("metadatas", [[]])[0]
             distances = res.get("distances", [[]])[0]
             
+            if docs is None: docs = []
+            if metas is None: metas = []
+            if distances is None: distances = []
+
             for d, m, dist in zip(docs, metas, distances):
                 out.append({"text": d, "meta": m, "distance": dist})
                 
             return out
 
-        except ChromaError as e:
-            logger.error(f"ChromaDB error during query on collection {self.collection_name}: {e}", exc_info=True)
-            return []
         except Exception as e:
             logger.error(f"Failed to query collection {self.collection_name}: {e}", exc_info=True)
             return []
@@ -179,19 +170,16 @@ class ChromaRepository:
     def upsert_chunks(
         self,
         chunks: List[str],
-        metadatas: List[Dict[str, Any]], # Service層が生成したIDベースのメタデータ
+        metadatas: List[Dict[str, Any]], 
         ids: List[str],
     ) -> None:
-        """
-        チャンクをUpsertする (元のロジックをそのまま使用)
-        """
         try:
             if not chunks:
                 logger.warning("No chunks provided to index. Skipping.")
                 return
 
             if not (len(chunks) == len(metadatas) == len(ids)):
-                msg = f"Chunks ({len(chunks)}), Metadatas ({len(metadatas)}), and IDs ({len(ids)}) lists must have the same length."
+                msg = f"Length mismatch: Chunks({len(chunks)}), Metadatas({len(metadatas)}), IDs({len(ids)})"
                 logger.error(msg)
                 raise ValueError(msg)
 
@@ -210,9 +198,6 @@ class ChromaRepository:
         ids: List[str] = None,
         where: Dict[str, Any] = None
     ) -> None:
-        """
-        チャンクを削除する (元のロジックをそのまま使用)
-        """
         if ids is None and where is None:
             msg = "Failed to delete: At least one of 'ids' or 'where' must be provided."
             logger.error(msg)
@@ -220,16 +205,10 @@ class ChromaRepository:
 
         try:
             logger.info(f"Attempting to delete from collection '{self.collection_name}'...")
-            if ids:
-                logger.info(f"Deleting {len(ids)} specific IDs.")
-            if where:
-                logger.info(f"Deleting based on 'where' filter: {where}")
-
+            
             self.collection.delete(ids=ids, where=where)
             
             logger.info(f"Successfully deleted chunks from '{self.collection_name}'.")
 
-        except ChromaError as e:
-            logger.error(f"ChromaDB error during delete on collection {self.collection_name}: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"Failed to delete from collection {self.collection_name}: {e}", exc_info=True)
