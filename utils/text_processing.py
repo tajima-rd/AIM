@@ -1,6 +1,5 @@
 import re, os, sys, json
 import logging
-from pypdf import PdfReader
 from jinja2 import Template
 from docling.document_converter import DocumentConverter
 from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -22,6 +21,7 @@ from ..core.config import WriteConfig, Character
 import re
 from typing import List, Dict, Optional
 
+logger = logging.getLogger(__name__)
 
 # --- RAG用に改善されたチャンキング関数 ---
 JP_SEPARATORS = ["\n\n", "。", "\n", "、", ""]
@@ -54,26 +54,51 @@ except Exception as e:
     print(f"doclingコンバーターの初期化に失敗しました: {e}")
     docling_converter = None
 
-def convert_pdf_markdown(path: str) -> str:
-    if docling_converter is None:
-        print("doclingコンバーターが初期化されていません。")
+def clean_markdown_text(text: str) -> str:
+    if not text:
         return ""
 
+    # 1. 連続する空白を1つにまとめる（ただし改行は保持）
+    text = re.sub(r'[ 　]+', ' ', text)
+
+    # 2. DoclingのMarkdown出力は通常きれいですですが、
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
+
+def convert_pdf_markdown(
+    path: str, 
+    converter: Optional[DocumentConverter] = None
+) -> str:
+
+    active_converter = converter if converter else globals().get('docling_converter')
+
+    if active_converter is None:
+        logger.error("Doclingコンバーターが初期化されていません。")
+        raise RuntimeError("Docling converter is not initialized.")
+
     if not os.path.exists(path):
-        print(f"PDF not found: {path}")
+        logger.error(f"PDFファイルが見つかりません: {path}")
         return ""
-        
+
     try:
-        # doclingでPDFファイルを変換
-        result = docling_converter.convert(path)
+        logger.info(f"PDF変換を開始します: {path}")
         
-        # 変換結果をMarkdown文字列に変換
+        # DoclingでPDF変換実行
+        result = active_converter.convert(path)
+        
+        # Markdownへエクスポート
         markdown_text = result.document.export_to_markdown()
-                
-        return markdown_text.strip()
         
+        # テキストのクリーニング（前処理）
+        cleaned_text = clean_markdown_text(markdown_text)
+        
+        logger.info(f"変換成功: {path} (文字数: {len(cleaned_text)})")
+        return cleaned_text
+
     except Exception as e:
-        print(f"doclingでのPDF処理中にエラーが発生しました ({path}): {e}")
+        # スタックトレースを含めてログ出力（デバッグ時に役立ちます）
+        logger.exception(f"PDF処理中に予期せぬエラーが発生しました: {path}")
         return ""
 
 def split_markdown_to_list(markdown_text: str, indent_num: int):
