@@ -30,8 +30,8 @@ JP_SEPARATORS = ["\n\n", "。", "\n", "、", ""]
 # chunk_size や chunk_overlap は、使用する埋め込みモデルや対象文書に応じて調整が必要
 text_splitter = RecursiveCharacterTextSplitter(
     separators=JP_SEPARATORS,
-    chunk_size=500,      # チャンクの最大文字数（RAGでは小さめが推奨されることが多い）
-    chunk_overlap=50,    # チャンク間の重複文字数
+    chunk_size=2000,      # チャンクの最大文字数（RAGでは小さめが推奨されることが多い）
+    chunk_overlap=200,    # チャンク間の重複文字数
     add_start_index=True # (オプション) 元テキストのどこから始まったかを記録
 )
 
