@@ -108,8 +108,7 @@ def configure_generators(request: ConfigureRequest):
                 
                 registered = True
             
-            elif config.client_type == "llamacpp": # JSON側をこれに合わせたならこのままでOK
-                # ※もしJSONが 'llamacpp_text' なら、ここも合わせるか、OR条件にする必要があります
+            elif config.client_type == "llamacpp": 
                 client = LlamaCppApiClient(api_key=config.api_key, model_name=config.model_name, api_url=config.api_url)
                 GENERATORS[config.generator_name] = LlamaCppTextGenerator(api_client=client, write_config=write_config)
                 
@@ -126,9 +125,6 @@ def configure_generators(request: ConfigureRequest):
         except Exception as e:
             # 初期化失敗時のエラーハンドリング
             print(f"'{config.generator_name}' のセットアップ中にエラーが発生しました: {e}")
-            # 必要であれば traceback を出力
-            # import traceback
-            # traceback.print_exc()
     
     # 最終確認ログ
     print(f"サーバーの設定が完了しました。利用可能なモデル: {list(GENERATORS.keys())}")
