@@ -131,40 +131,6 @@ def configure_generators(request: ConfigureRequest):
     
     return {"message": "Configuration successful.", "configured_generators": list(GENERATORS.keys())}
 
-# @app.post("/configure")
-# def configure_generators(request: ConfigureRequest):
-#     """
-#     設定情報を受け取り、サーバー内でジェネレーターをインスタンス化する。
-#     """
-#     global GENERATORS
-#     GENERATORS = {} # 設定のたびにリセット
-
-#     print("--- ジェネレーターの設定を開始します ---")
-    
-#     # 汎用的な設定オブジェクトを作成
-#     write_config = WriteConfig()
-#     speech_config = SpeechConfig()
-
-#     for config in request.configs:
-#         try:
-#             if config.client_type == "gemini":
-#                 client = GeminiApiClient(api_key=config.api_key, model_name=config.model_name)
-#                 if "text" in config.generator_name:
-#                     GENERATORS[config.generator_name] = GeminiTextGenerator(api_client=client, write_config=write_config)
-#                 elif "speech" in config.generator_name:
-#                     GENERATORS[config.generator_name] = GeminiSpeechGenerator(api_client=client, speech_config=speech_config)
-            
-#             elif config.client_type == "llamacpp":
-#                 client = LlamaCppApiClient(api_key=config.api_key, model_name=config.model_name, api_url=config.api_url)
-#                 GENERATORS[config.generator_name] = LlamaCppTextGenerator(api_client=client, write_config=write_config)
-            
-#             print(f"'{config.generator_name}' のセットアップが完了しました。")
-
-#         except Exception as e:
-#             print(f"'{config.generator_name}' のセットアップ中にエラーが発生しました: {e}")
-    
-#     return {"message": "Configuration successful.", "configured_generators": list(GENERATORS.keys())}
-
 @app.post("/generate_text", response_model=GenerateResponse)
 def generate_text(request: GenerateRequest):
     print(f"\n--- [デバッグ] /generate_text が呼び出されました ---")
